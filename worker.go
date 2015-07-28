@@ -8,7 +8,6 @@ import (
 )
 
 func main() {
-	// dbHost := os.Getenv("PG_HOST")
 	// if runtime.NumCPU() > 1 {
 	// 	numOfCpus := runtime.NumCPU() - 1
 	// 	runtime.GOMAXPROCS(numOfCpus)
