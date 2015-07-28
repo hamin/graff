@@ -170,7 +170,7 @@ func InstagramMediaImportWorker(message *workers.Msg) {
 				newVenueImport := instagramVenueImport{LocationID: m.Location.ID}
 
 				// Query Neo4J w/ VENUE IG ID
-				query := fmt.Sprintf("match (c:NeoVenue) where c.instagram_id = '%v' return id(c)", m.Location.ID)
+				query := fmt.Sprintf("match (c:InstagramLocation) where c.instagram_id = '%v' return id(c)", m.Location.ID)
 				log.Info("THIS IS THE IGVENUE INSTAGRAM ID: %v", m.Location.ID)
 				log.Info("THIS IS CYPHER QUERY: %v", query)
 				exstingLocationNeoNodeID, err := FindByCypher(neo4jConnection, query)
