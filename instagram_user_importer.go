@@ -41,14 +41,11 @@ func InstagramUserImportWorker(message *workers.Msg) {
 		log.Error("Mssing IG Token")
 	}
 
-	client := instagram.NewClient(nil)
-	client.AccessToken = igToken
-
 	neoHost := os.Getenv("NEO4JURI")
 	neo4jConnection := neo4j.Connect(neoHost)
 
 	// Query if we already have imported user to Neo
-	query := fmt.Sprintf("match (c:InstagramUser) where c.instagram_id = '%v' return id(c)", igUID)
+	query := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' return id(c)", igUID)
 	log.Info("THIS IS IG USER CYPHER QUERY: %v", query) // Confirm this Cypher Query
 	exstingIGUserNeoNodeID, neoExistingUserErr := FindByCypher(neo4jConnection, query)
 
@@ -57,6 +54,9 @@ func InstagramUserImportWorker(message *workers.Msg) {
 		workers.Enqueue("instagramediaimportworker", "InstagramMediaImportWorker", []string{igUID, igToken, "", string(exstingIGUserNeoNodeID)})
 		return
 	}
+
+	client := instagram.NewClient(nil)
+	client.AccessToken = igToken
 
 	// Get IG User and Create Neo Node
 	igUser, igErr := client.Users.Get(igUID)
@@ -83,11 +83,19 @@ func InstagramUserImportWorker(message *workers.Msg) {
 	igNeoUser.FollowedByCount = igUser.Counts.FollowedBy
 
 	node.Data = structs.Map(igNeoUser)
-	batch.Create(node)
+
+	unique := &neo4j.Unique{}
+	unique.IndexName = "ig_user_uid"
+	unique.Key = "InstagramID"
+	unique.Value = fmt.Sprintf("iguser%s", igUID)
+
+	batch.CreateUnique(node, unique)
+
+	// batch.Create(node)
 
 	manuelLabel := &neo4j.ManuelBatchRequest{}
 	manuelLabel.To = "{0}/labels"
-	manuelLabel.StringBody = "NeoUser"
+	manuelLabel.StringBody = "InstagramUser"
 	batch.Create(manuelLabel)
 	var nodeIDInt int
 	res, err := batch.Execute()

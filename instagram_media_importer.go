@@ -12,9 +12,9 @@ import (
 	"strconv"
 )
 
-type instagramVenueImport struct {
+type instagramLocationImport struct {
 	LocationID     int
-	ExistsInDB     bool
+	ExistsInNeo4J  bool
 	NeoVenueNodeID int32
 	NodeIdx        int
 }
@@ -91,10 +91,10 @@ func InstagramMediaImportWorker(message *workers.Msg) {
 		log.Error("Error: %v\n", err)
 		if (err == nil) && (maxID != "") {
 			log.Info("Instagram API Failed, Enqueuing Again with MaxID: ", maxID)
-			workers.Enqueue("neomediaimporter", "NeoMediaImportWorker", []string{igUID, igToken, maxID})
+			workers.Enqueue("instagramediaimportworker", "InstagramMediaImportWorker", []string{igUID, igToken, maxID, string(userNeoNodeID)})
 		} else {
 			log.Info("Instagram API Failed, Enqueuing Again")
-			workers.Enqueue("neomediaimporter", "NeoMediaImportWorker", []string{igUID, igToken})
+			workers.Enqueue("instagramediaimportworker", "InstagramMediaImportWorker", []string{igUID, igToken, "", string(userNeoNodeID)})
 		}
 		return
 	}
@@ -107,7 +107,7 @@ func InstagramMediaImportWorker(message *workers.Msg) {
 	batch := neo4jConnection.NewBatch()
 
 	batchOperations := []*neo4j.ManuelBatchRequest{}
-	importedIGVenues := make(map[int]instagramVenueImport)
+	importedIGLocations := make(map[int]instagramLocationImport)
 
 	for _, m := range media {
 		var mediaItemNodeIdx = nodeIdx
@@ -151,26 +151,26 @@ func InstagramMediaImportWorker(message *workers.Msg) {
 		AddLabelOperation(&batchOperations, nodeIdx, "InstagramMediaItem")
 
 		// TODO NEED TO ADD RELATIONSHIP TO IG USER NEO NODE
-		AddRelationshipOperation(&batchOperations, int(userNeoNodeID), mediaItemNodeIdx, true, false, "neo_media_item")
+		AddRelationshipOperation(&batchOperations, int(userNeoNodeID), mediaItemNodeIdx, true, false, "instagram_media_item")
 
 		// Handle has_venue is true
 		if hasVenue {
 			// First check to see if we've already imported this Venue in this range loop
 			// this migth or might not exist in a batch operation
-			existingVenueImport, ok := importedIGVenues[m.Location.ID]
+			existingVenueImport, ok := importedIGLocations[m.Location.ID]
 			if ok {
-				// We've already done a venue import for this venue
-				if existingVenueImport.ExistsInDB {
-					AddRelationshipOperation(&batchOperations, mediaItemNodeIdx, int(existingVenueImport.NeoVenueNodeID), false, true, "neo_venue")
+				// We've already done a location import for this location in this worker
+				if existingVenueImport.ExistsInNeo4J {
+					AddRelationshipOperation(&batchOperations, mediaItemNodeIdx, int(existingVenueImport.NeoVenueNodeID), false, true, "instagram_location")
 				} else {
-					AddRelationshipOperation(&batchOperations, mediaItemNodeIdx, existingVenueImport.NodeIdx, false, false, "neo_venue")
+					AddRelationshipOperation(&batchOperations, mediaItemNodeIdx, existingVenueImport.NodeIdx, false, false, "instagram_location")
 				}
 			} else {
 
-				newVenueImport := instagramVenueImport{LocationID: m.Location.ID}
+				newVenueImport := instagramLocationImport{LocationID: m.Location.ID}
 
 				// Query Neo4J w/ VENUE IG ID
-				query := fmt.Sprintf("match (c:InstagramLocation) where c.instagram_id = '%v' return id(c)", m.Location.ID)
+				query := fmt.Sprintf("match (c:InstagramLocation) where c.InstagramID = '%v' return id(c)", m.Location.ID)
 				log.Info("THIS IS THE IGVENUE INSTAGRAM ID: %v", m.Location.ID)
 				log.Info("THIS IS CYPHER QUERY: %v", query)
 				exstingLocationNeoNodeID, err := FindByCypher(neo4jConnection, query)
@@ -189,22 +189,22 @@ func InstagramMediaImportWorker(message *workers.Msg) {
 					batch.Create(venueNode)
 					nodeIdx++
 
-					newVenueImport.ExistsInDB = false
+					newVenueImport.ExistsInNeo4J = false
 					newVenueImport.NodeIdx = nodeIdx
-					importedIGVenues[newVenueImport.LocationID] = newVenueImport
+					importedIGLocations[newVenueImport.LocationID] = newVenueImport
 
 					// Add Label for NEO Venue
-					AddLabelOperation(&batchOperations, nodeIdx, "NeoVenue")
+					AddLabelOperation(&batchOperations, nodeIdx, "InstagramLocation")
 					// Add relationship between NEO VENUE and NEO MEDIA
-					AddRelationshipOperation(&batchOperations, mediaItemNodeIdx, nodeIdx, false, false, "neo_venue")
+					AddRelationshipOperation(&batchOperations, mediaItemNodeIdx, nodeIdx, false, false, "instagram_location")
 				} else {
 					log.Info("THERE IS AN EXISTING NEO VENUE NODE SO WE WILL")
-					newVenueImport.ExistsInDB = true
+					newVenueImport.ExistsInNeo4J = true
 					newVenueImport.NeoVenueNodeID = int32(exstingLocationNeoNodeID)
-					importedIGVenues[newVenueImport.LocationID] = newVenueImport
+					importedIGLocations[newVenueImport.LocationID] = newVenueImport
 
 					// Add relationship between NEO VENUE and NEO MEDIA
-					AddRelationshipOperation(&batchOperations, mediaItemNodeIdx, exstingLocationNeoNodeID, false, true, "neo_venue")
+					AddRelationshipOperation(&batchOperations, mediaItemNodeIdx, exstingLocationNeoNodeID, false, true, "instagram_location")
 				}
 			}
 
