@@ -12,8 +12,8 @@ import (
 	"os"
 )
 
-// InstagramUserImportWorker Imports Instagram media to Neo4J
-func InstagramUserImportWorker(message *workers.Msg) {
+// UserImportWorker Imports Instagram media to Neo4J
+func UserImportWorker(message *workers.Msg) {
 
 	igUID, igUIDErr := message.Args().GetIndex(0).String()
 	log.Info("Starting NeoMedia Import process: ", igUID)
@@ -59,7 +59,7 @@ func InstagramUserImportWorker(message *workers.Msg) {
 	batch := neo4jConnection.NewBatch()
 
 	node := &neo4j.Node{}
-	igNeoUser := InstagramUser{}
+	igNeoUser := User{}
 	igNeoUser.InstagramID = igUser.ID
 	igNeoUser.FullName = igUser.FullName
 	igNeoUser.Bio = igUser.Bio

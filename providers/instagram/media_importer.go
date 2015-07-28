@@ -20,9 +20,8 @@ type instagramLocationImport struct {
 	NodeIdx        int
 }
 
-// InstagramMediaImportWorker Imports Instagram media to Neo4J
-func InstagramMediaImportWorker(message *workers.Msg) {
-
+// MediaImportWorker Imports Instagram media to Neo4J
+func MediaImportWorker(message *workers.Msg) {
 	igUID, igUIDErr := message.Args().GetIndex(0).String()
 	log.Info("Starting NeoMedia Import process: ", igUID)
 
@@ -86,7 +85,7 @@ func InstagramMediaImportWorker(message *workers.Msg) {
 	for _, m := range media {
 		var mediaItemNodeIdx = nodeIdx
 		node := &neo4j.Node{}
-		igMediaItem := InstagramMediaItem{}
+		igMediaItem := MediaItem{}
 		igMediaItem.InstagramID = m.ID
 		igMediaItem.Filter = m.Filter
 		igMediaItem.Link = m.Link
@@ -153,7 +152,7 @@ func InstagramMediaImportWorker(message *workers.Msg) {
 				if err != nil {
 					log.Info("Error trying to find NeoVenue w/ InstagramID: %v", m.Location.ID)
 					venueNode := &neo4j.Node{}
-					igMediaLocation := InstagramMediaLocation{}
+					igMediaLocation := MediaLocation{}
 					igMediaLocation.Name = m.Location.Name
 					igMediaLocation.Latitude = m.Location.Latitude
 					igMediaLocation.Longitude = m.Location.Longitude

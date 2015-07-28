@@ -1,7 +1,7 @@
 package instagram
 
-// InstagramUser - IG User
-type InstagramUser struct {
+// User - IG User
+type User struct {
 	InstagramID     string
 	Username        string
 	FullName        string
@@ -13,8 +13,8 @@ type InstagramUser struct {
 	FollowedByCount int
 }
 
-// InstagramMediaItem - This is media object from IG
-type InstagramMediaItem struct {
+// MediaItem - This is media object from IG
+type MediaItem struct {
 	Type                string
 	Filter              string
 	Link                string
@@ -32,8 +32,8 @@ type InstagramMediaItem struct {
 	HasVenue            bool
 }
 
-// InstagramMediaLocation - This is media object from IG
-type InstagramMediaLocation struct {
+// MediaLocation - This is media object from IG
+type MediaLocation struct {
 	InstagramID string
 	Name        string
 	Latitude    float64

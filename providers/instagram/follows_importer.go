@@ -12,7 +12,8 @@ import (
 	_ "time"
 )
 
-func InstagramFollowsImporter(message *workers.Msg) {
+// FollowsImporter - ig Follows Importer
+func FollowsImporter(message *workers.Msg) {
 
 	igUID, _ := message.Args().GetIndex(0).String()
 	log.Info("Starting NeoMedia Import process: ", igUID)
