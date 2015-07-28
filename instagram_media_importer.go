@@ -6,7 +6,6 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/carbocation/go-instagram/instagram"
 	"github.com/hamin/neo4j"
-	// "github.com/jinzhu/gorm"
 	"github.com/jrallison/go-workers"
 	"os"
 	"strconv"
