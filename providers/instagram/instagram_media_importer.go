@@ -1,7 +1,8 @@
-package main
+package instagram
 
 import (
 	// "errors"
+	"../../neo_helpers"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/carbocation/go-instagram/instagram"
@@ -17,33 +18,6 @@ type instagramLocationImport struct {
 	ExistsInNeo4J  bool
 	NeoVenueNodeID int32
 	NodeIdx        int
-}
-
-// InstagramMediaItem - This is media object from IG
-type InstagramMediaItem struct {
-	Type                string
-	Filter              string
-	Link                string
-	UserHasLiked        bool
-	CreatedTime         int64
-	InstagramID         string
-	ImageThumbnail      string
-	ImageLowResolution  string
-	ImageHighResolution string
-	VideoLowResolution  string
-	VideoHighResolution string
-	CaptionID           string
-	CaptionText         string
-	LikesCount          int
-	HasVenue            bool
-}
-
-// InstagramMediaLocation - This is media object from IG
-type InstagramMediaLocation struct {
-	InstagramID string
-	Name        string
-	Latitude    float64
-	Longitude   float64
 }
 
 // InstagramMediaImportWorker Imports Instagram media to Neo4J
@@ -148,10 +122,10 @@ func InstagramMediaImportWorker(message *workers.Msg) {
 		node.Data = structs.Map(igMediaItem)
 		batch.Create(node)
 		//ADD LABEL FOR MEDIA NODE WITH {INDEX} = nodeIdx
-		AddLabelOperation(&batchOperations, nodeIdx, "InstagramMediaItem")
+		neohelpers.AddLabelOperation(&batchOperations, nodeIdx, "InstagramMediaItem")
 
 		// TODO NEED TO ADD RELATIONSHIP TO IG USER NEO NODE
-		AddRelationshipOperation(&batchOperations, int(userNeoNodeID), mediaItemNodeIdx, true, false, "instagram_media_item")
+		neohelpers.AddRelationshipOperation(&batchOperations, int(userNeoNodeID), mediaItemNodeIdx, true, false, "instagram_media_item")
 
 		// Handle has_venue is true
 		if hasVenue {
@@ -161,9 +135,9 @@ func InstagramMediaImportWorker(message *workers.Msg) {
 			if ok {
 				// We've already done a location import for this location in this worker
 				if existingVenueImport.ExistsInNeo4J {
-					AddRelationshipOperation(&batchOperations, mediaItemNodeIdx, int(existingVenueImport.NeoVenueNodeID), false, true, "instagram_location")
+					neohelpers.AddRelationshipOperation(&batchOperations, mediaItemNodeIdx, int(existingVenueImport.NeoVenueNodeID), false, true, "instagram_location")
 				} else {
-					AddRelationshipOperation(&batchOperations, mediaItemNodeIdx, existingVenueImport.NodeIdx, false, false, "instagram_location")
+					neohelpers.AddRelationshipOperation(&batchOperations, mediaItemNodeIdx, existingVenueImport.NodeIdx, false, false, "instagram_location")
 				}
 			} else {
 
@@ -173,7 +147,7 @@ func InstagramMediaImportWorker(message *workers.Msg) {
 				query := fmt.Sprintf("match (c:InstagramLocation) where c.InstagramID = '%v' return id(c)", m.Location.ID)
 				log.Info("THIS IS THE IGVENUE INSTAGRAM ID: %v", m.Location.ID)
 				log.Info("THIS IS CYPHER QUERY: %v", query)
-				exstingLocationNeoNodeID, err := FindByCypher(neo4jConnection, query)
+				exstingLocationNeoNodeID, err := neohelpers.FindByCypher(neo4jConnection, query)
 				log.Info("THIS IS THE NODEID FOR THE VENUE: %v", exstingLocationNeoNodeID)
 
 				if err != nil {
@@ -194,9 +168,9 @@ func InstagramMediaImportWorker(message *workers.Msg) {
 					importedIGLocations[newVenueImport.LocationID] = newVenueImport
 
 					// Add Label for NEO Venue
-					AddLabelOperation(&batchOperations, nodeIdx, "InstagramLocation")
+					neohelpers.AddLabelOperation(&batchOperations, nodeIdx, "InstagramLocation")
 					// Add relationship between NEO VENUE and NEO MEDIA
-					AddRelationshipOperation(&batchOperations, mediaItemNodeIdx, nodeIdx, false, false, "instagram_location")
+					neohelpers.AddRelationshipOperation(&batchOperations, mediaItemNodeIdx, nodeIdx, false, false, "instagram_location")
 				} else {
 					log.Info("THERE IS AN EXISTING NEO VENUE NODE SO WE WILL")
 					newVenueImport.ExistsInNeo4J = true
@@ -204,7 +178,7 @@ func InstagramMediaImportWorker(message *workers.Msg) {
 					importedIGLocations[newVenueImport.LocationID] = newVenueImport
 
 					// Add relationship between NEO VENUE and NEO MEDIA
-					AddRelationshipOperation(&batchOperations, mediaItemNodeIdx, exstingLocationNeoNodeID, false, true, "instagram_location")
+					neohelpers.AddRelationshipOperation(&batchOperations, mediaItemNodeIdx, exstingLocationNeoNodeID, false, true, "instagram_location")
 				}
 			}
 

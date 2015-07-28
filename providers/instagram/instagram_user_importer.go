@@ -1,7 +1,8 @@
-package main
+package instagram
 
 import (
 	// "errors"
+	"../../neo_helpers"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/carbocation/go-instagram/instagram"
@@ -10,19 +11,6 @@ import (
 	"github.com/jrallison/go-workers"
 	"os"
 )
-
-// InstagramUser - IG User
-type InstagramUser struct {
-	InstagramID     string
-	Username        string
-	FullName        string
-	ProfilePicture  string
-	Bio             string
-	Website         string
-	MediaCount      int
-	FollowsCount    int
-	FollowedByCount int
-}
 
 // InstagramUserImportWorker Imports Instagram media to Neo4J
 func InstagramUserImportWorker(message *workers.Msg) {
@@ -47,7 +35,7 @@ func InstagramUserImportWorker(message *workers.Msg) {
 	// Query if we already have imported user to Neo
 	query := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' return id(c)", igUID)
 	log.Info("THIS IS IG USER CYPHER QUERY: %v", query) // Confirm this Cypher Query
-	exstingIGUserNeoNodeID, neoExistingUserErr := FindByCypher(neo4jConnection, query)
+	exstingIGUserNeoNodeID, neoExistingUserErr := neohelpers.FindByCypher(neo4jConnection, query)
 
 	if neoExistingUserErr != nil {
 		// Enqueue Media and User Follows importer
