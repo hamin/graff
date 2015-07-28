@@ -27,7 +27,7 @@ func main() {
 
 	workers.Configure(map[string]string{
 		// location of redis instance
-		"namespace": "glimpse",
+		"namespace": "graff",
 		"server":    redisServer,
 		// instance of the database
 		"database": redisDB,
