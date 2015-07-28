@@ -213,4 +213,25 @@ func InstagramMediaImportWorker(message *workers.Msg) {
 		nodeIdx++
 	}
 
+	for _, batchOp := range batchOperations {
+		batch.Create(batchOp)
+	}
+
+	res, err := batch.Execute()
+	if err != nil {
+		log.Error("THERE WAS AN ERROR EXECUTING BATCH!!!!")
+		log.Error(err)
+		log.Error(res)
+	} else {
+		log.Info("Successfully imported Media to Neo4J")
+
+		if next.NextMaxID != "" {
+			log.Info("*** This is our next.NextMaxID ", next.NextMaxID)
+			workers.Enqueue("instagramediaimportworker", "InstagramMediaImportWorker", []string{igUID, igToken, next.NextMaxID, string(userNeoNodeID)})
+			log.Info("Enqueued Next Pagination Media Import!!!")
+		} else {
+			log.Info("Done Importing Media for IG User!")
+		}
+	}
+
 }
