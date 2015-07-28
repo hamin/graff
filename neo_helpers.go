@@ -1,8 +1,10 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	log "github.com/Sirupsen/logrus"
-	"github.com/hamin/neo4j"
+	"github.com/cihangir/neo4j"
 )
 
 var neoHelpers NeoHelpers
