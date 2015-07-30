@@ -72,14 +72,14 @@ func UserImportWorker(message *workers.Msg) {
 
 	node.Data = structs.Map(igNeoUser)
 
-	unique := &neo4j.Unique{}
-	unique.IndexName = "ig_user_uid"
-	unique.Key = "InstagramID"
-	unique.Value = fmt.Sprintf("iguser%s", igUID)
+	// unique := &neo4j.Unique{}
+	// unique.IndexName = "ig_user_uid"
+	// unique.Key = "InstagramID"
+	// unique.Value = fmt.Sprintf("iguser%s", igUID)
 
-	batch.CreateUnique(node, unique)
+	// batch.CreateUnique(node, unique)
 
-	// batch.Create(node)
+	batch.Create(node)
 
 	manuelLabel := &neo4j.ManuelBatchRequest{}
 	manuelLabel.To = "{0}/labels"
