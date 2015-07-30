@@ -1,4 +1,4 @@
-package instagram
+package main
 
 import (
 	"../../neo_helpers"
@@ -6,45 +6,41 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"github.com/cihangir/neo4j"
 	"github.com/fatih/structs"
-	"github.com/jrallison/go-workers"
 	"github.com/maggit/go-instagram/instagram"
 	"os"
 	"strconv"
 )
 
-func FollowsImportWorker(message *workers.Msg) {
+type User struct {
+	InstagramID     string
+	Username        string
+	FullName        string
+	ProfilePicture  string
+	Bio             string
+	Website         string
+	MediaCount      int
+	FollowsCount    int
+	FollowedByCount int
+}
 
-	igUID, igUIDErr := message.Args().GetIndex(0).String()
-	log.Info("Starting NeoMedia Import process: ", igUID)
-
-	igToken, igTokenErr := message.Args().GetIndex(1).String()
-	log.Info("Starting NeoMedia Import process: ", igToken)
-
-	cursorString, cursorErr := message.Args().GetIndex(2).String()
-	cursor, _ := strconv.Atoi(cursorString)
-
-	userNeoNodeID, userNeoNodeIDErr := message.Args().GetIndex(3).Int()
-	if igUIDErr != nil {
-		log.Error("Missing IG User ID")
+func main() {
+	raw_userNeoNodeID := os.Getenv("NEO_NODE_ID")
+	userNeoNodeID, err := strconv.Atoi(raw_userNeoNodeID)
+	if err != nil {
+		log.Fatal(err)
 	}
 
-	if igTokenErr != nil {
-		log.Error("Mssing IG Token")
-	}
-
-	if userNeoNodeIDErr != nil {
-		log.Error("Missing IG User Neo Node ID")
-	}
-
+	testingToken := os.Getenv("INSTAGRAM_TESTING_ACCESS_TOKEN")
 	client := instagram.NewClient(nil)
-	client.AccessToken = igToken
+	client.AccessToken = testingToken
 
 	opt := &instagram.Parameters{Count: 20}
-
-	if (cursorErr == nil) && (cursor > 0) {
-		log.Info("We have a Cursor")
-		opt.Cursor = uint64(cursor)
-	}
+	// opt.Cursor = something
+	// maxID, err := message.Args().GetIndex(1).String()
+	// if (err == nil) && (maxID != "") {
+	// 	log.Info("We have a Max ID")
+	// 	opt.MaxID = maxID
+	// }
 
 	users, next, err := client.Relationships.Follows("", opt)
 	if err != nil {
@@ -57,6 +53,7 @@ func FollowsImportWorker(message *workers.Msg) {
 	batchOperations := []*neo4j.ManuelBatchRequest{}
 	var nodeIdx int
 	nodeIdx = 0
+
 	//now we need to iterate trhough users and check if the user exists on neo4j, if user exists we just create
 	//a relationship with the main node
 	for _, u := range users {
@@ -76,6 +73,7 @@ func FollowsImportWorker(message *workers.Msg) {
 
 			node.Data = structs.Map(igNeoUser)
 			batch.Create(node)
+			//ADD LABEL FOR USER NODE WITH {INDEX} = nodeIdx
 
 			// unique := &neo4j.Unique{}
 			// unique.IndexName = "ig_user_uid"
@@ -107,8 +105,8 @@ func FollowsImportWorker(message *workers.Msg) {
 	} else {
 		log.Info("Successfully imported Media to Neo4J")
 		if next.NextURL != "" {
-			log.Info("*** This is our next.NextURL ", next)
-			//workers.Enqueue("followsimportworker", "FollowsImportWorker", []string{igUID, igToken, next.Cursor, string(userNeoNodeID)})
+			log.Info("*** This is our next.NextURL ", next.NextURL)
+			//workers.Enqueue("instagramediaimportworker", "InstagramMediaImportWorker", []string{igUID, igToken, next.NextMaxID, string(userNeoNodeID)})
 			log.Info("Sh Next Pagination Follows Import!!!")
 		} else {
 			log.Info("Done Importing Follows for IG User!")

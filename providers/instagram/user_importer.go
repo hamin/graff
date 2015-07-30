@@ -5,10 +5,10 @@ import (
 	"../../neo_helpers"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
-	"github.com/carbocation/go-instagram/instagram"
 	"github.com/cihangir/neo4j"
 	"github.com/fatih/structs"
 	"github.com/jrallison/go-workers"
+	"github.com/maggit/go-instagram/instagram"
 	"os"
 )
 
