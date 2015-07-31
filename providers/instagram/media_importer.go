@@ -23,25 +23,29 @@ type instagramLocationImport struct {
 // MediaImportWorker Imports Instagram media to Neo4J
 func MediaImportWorker(message *workers.Msg) {
 	igUID, igUIDErr := message.Args().GetIndex(0).String()
-	log.Info("Starting NeoMedia Import process: ", igUID)
+	log.Info("MediaImportWorker: Starting NeoMedia Import process: ", igUID)
 
 	igToken, igTokenErr := message.Args().GetIndex(1).String()
-	log.Info("Starting NeoMedia Import process: ", igToken)
+	log.Info("MediaImportWorker: Starting NeoMedia Import process: ", igToken)
 
 	maxID, maxIDErr := message.Args().GetIndex(2).String()
 
-	userNeoNodeID, userNeoNodeIDErr := message.Args().GetIndex(3).Int()
+	userNeoNodeIDRaw, userNeoNodeIDErr := message.Args().GetIndex(3).String()
+	userNeoNodeID, _ := strconv.Atoi(userNeoNodeIDRaw)
+	if igUIDErr != nil {
+		log.Error("FollowsImportWorker: Missing IG User ID")
+	}
 
 	if igUIDErr != nil {
-		log.Error("Missing IG User ID")
+		log.Error("MediaImportWorker: Missing IG User ID")
 	}
 
 	if igTokenErr != nil {
-		log.Error("Mssing IG Token")
+		log.Error("MediaImportWorker: Mssing IG Token")
 	}
 
 	if userNeoNodeIDErr != nil {
-		log.Error("Missing IG User Neo Node ID")
+		log.Error("MediaImportWorker: Missing IG User Neo Node ID")
 	}
 
 	client := instagram.NewClient(nil)
@@ -50,23 +54,23 @@ func MediaImportWorker(message *workers.Msg) {
 	opt := &instagram.Parameters{Count: 20}
 
 	if (maxIDErr == nil) && (maxID != "") {
-		log.Info("We have a Max ID")
+		log.Info("MediaImportWorker: We have a Max ID")
 		opt.MaxID = maxID
 	}
 
 	media, next, err := client.Users.RecentMedia(igUID, opt)
 
 	if next != nil {
-		log.Info("We have next Page from IG")
+		log.Info("MediaImportWorker: We have next Page from IG")
 	}
 
 	if err != nil {
 		log.Error("Error: %v\n", err)
 		if (err == nil) && (maxID != "") {
-			log.Info("Instagram API Failed, Enqueuing Again with MaxID: ", maxID)
+			log.Info("MediaImportWorker: Instagram API Failed, Enqueuing Again with MaxID: ", maxID)
 			workers.EnqueueIn("instagramediaimportworker", "InstagramMediaImportWorker", 3600.0, []string{igUID, igToken, maxID, string(userNeoNodeID)})
 		} else {
-			log.Info("Instagram API Failed, Enqueuing Again")
+			log.Info("MediaImportWorker: Instagram API Failed, Enqueuing Again")
 			workers.EnqueueIn("instagramediaimportworker", "InstagramMediaImportWorker", 3600.0, []string{igUID, igToken, "", string(userNeoNodeID)})
 		}
 		return
@@ -144,10 +148,10 @@ func MediaImportWorker(message *workers.Msg) {
 
 				// Query Neo4J w/ VENUE IG ID
 				query := fmt.Sprintf("match (c:InstagramLocation) where c.InstagramID = '%v' return id(c)", m.Location.ID)
-				log.Info("THIS IS THE IGVENUE INSTAGRAM ID: %v", m.Location.ID)
-				log.Info("THIS IS CYPHER QUERY: %v", query)
+				log.Info("MediaImportWorker: THIS IS THE IGVENUE INSTAGRAM ID: %v", m.Location.ID)
+				log.Info("MediaImportWorker: THIS IS CYPHER QUERY: %v", query)
 				exstingLocationNeoNodeID, err := neohelpers.FindByCypher(neo4jConnection, query)
-				log.Info("THIS IS THE NODEID FOR THE VENUE: %v", exstingLocationNeoNodeID)
+				log.Info("MediaImportWorker: THIS IS THE NODEID FOR THE VENUE: %v", exstingLocationNeoNodeID)
 
 				if err != nil {
 					log.Info("Error trying to find NeoVenue w/ InstagramID: %v", m.Location.ID)
@@ -171,7 +175,7 @@ func MediaImportWorker(message *workers.Msg) {
 					// Add relationship between NEO VENUE and NEO MEDIA
 					neohelpers.AddRelationshipOperation(&batchOperations, mediaItemNodeIdx, nodeIdx, false, false, "instagram_location")
 				} else {
-					log.Info("THERE IS AN EXISTING NEO VENUE NODE SO WE WILL")
+					log.Info("MediaImportWorker: THERE IS AN EXISTING NEO VENUE NODE SO WE WILL")
 					newVenueImport.ExistsInNeo4J = true
 					newVenueImport.NeoVenueNodeID = int32(exstingLocationNeoNodeID)
 					importedIGLocations[newVenueImport.LocationID] = newVenueImport
@@ -192,18 +196,18 @@ func MediaImportWorker(message *workers.Msg) {
 
 	res, err := batch.Execute()
 	if err != nil {
-		log.Error("THERE WAS AN ERROR EXECUTING BATCH!!!!")
+		log.Error("MediaImportWorker: THERE WAS AN ERROR EXECUTING BATCH!!!!")
 		log.Error(err)
 		log.Error(res)
 	} else {
-		log.Info("Successfully imported Media to Neo4J")
+		log.Info("MediaImportWorker: Successfully imported Media to Neo4J")
 
 		if next.NextMaxID != "" {
-			log.Info("*** This is our next.NextMaxID ", next.NextMaxID)
+			log.Info("MediaImportWorker *** This is our next.NextMaxID ", next.NextMaxID)
 			workers.Enqueue("instagramediaimportworker", "InstagramMediaImportWorker", []string{igUID, igToken, next.NextMaxID, string(userNeoNodeID)})
-			log.Info("Enqueued Next Pagination Media Import!!!")
+			log.Info("MediaImportWorker Enqueued Next Pagination Media Import!!!")
 		} else {
-			log.Info("Done Importing Media for IG User!")
+			log.Info("MediaImportWorker: Done Importing Media for IG User!")
 		}
 	}
 

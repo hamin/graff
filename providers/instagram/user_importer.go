@@ -16,17 +16,17 @@ import (
 func UserImportWorker(message *workers.Msg) {
 
 	igUID, igUIDErr := message.Args().GetIndex(0).String()
-	log.Info("Starting NeoMedia Import process: ", igUID)
+	log.Info("UserImportWorker: Starting NeoMedia Import process: ", igUID)
 
 	igToken, igTokenErr := message.Args().GetIndex(1).String()
-	log.Info("Starting NeoMedia Import process: ", igToken)
+	log.Info("UserImportWorker: Starting NeoMedia Import process: ", igToken)
 
 	if igUIDErr != nil {
-		log.Error("Missing IG User ID")
+		log.Error("UserImportWorker: Missing IG User ID")
 	}
 
 	if igTokenErr != nil {
-		log.Error("Mssing IG Token")
+		log.Error("UserImportWorker: Mssing IG Token")
 	}
 
 	neoHost := os.Getenv("NEO4JURI")
@@ -34,12 +34,12 @@ func UserImportWorker(message *workers.Msg) {
 
 	// Query if we already have imported user to Neo
 	query := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' return id(c)", igUID)
-	log.Info("THIS IS IG USER CYPHER QUERY: %v", query) // Confirm this Cypher Query
-	exstingIGUserNeoNodeID, neoExistingUserErr := neohelpers.FindByCypher(neo4jConnection, query)
+	log.Info("UserImportWorker: THIS IS IG USER CYPHER QUERY: %v", query) // Confirm this Cypher Query
+	exstingIGUserNeoNodeID, exstingIGUserNeoNodeIDERROR := neohelpers.FindByCypher(neo4jConnection, query)
+	log.Info("UserImportWorker: exstingIGUserNeoNodeID: ", exstingIGUserNeoNodeID)
 
-	if neoExistingUserErr != nil {
-		// Enqueue Media and User Follows importer
-		workers.Enqueue("instagramediaimportworker", "InstagramMediaImportWorker", []string{igUID, igToken, "", string(exstingIGUserNeoNodeID)})
+	if exstingIGUserNeoNodeIDERROR == nil {
+		log.Info("UserImportWorker: exstingIGUserNeoNodeIDERROR", exstingIGUserNeoNodeIDERROR)
 		return
 	}
 
@@ -49,10 +49,10 @@ func UserImportWorker(message *workers.Msg) {
 	// Get IG User and Create Neo Node
 	igUser, igErr := client.Users.Get(igUID)
 	if igErr != nil {
-		log.Error("Error: %v\n", igErr)
-		log.Error("No IG user found: ", igUID)
-		log.Info("Instagram API Failed, Enqueuing User Import Again With IGUID: ", igUID)
-		workers.Enqueue("instagramuserimportworker", "InstagramUserImportWorker", []string{igUID, igToken})
+		log.Error("UserImportWorker Error: %v\n", igErr)
+		log.Error("UserImportWorker No IG user found: ", igUID)
+		log.Info("UserImportWorker Instagram API Failed, Enqueuing User Import Again With IGUID: ", igUID)
+		//workers.Enqueue("instagramuserimportworker", "InstagramUserImportWorker", []string{igUID, igToken})
 		return
 	}
 
@@ -88,7 +88,7 @@ func UserImportWorker(message *workers.Msg) {
 	var nodeIDInt int
 	res, err := batch.Execute()
 	if err != nil {
-		log.Error("Failed to create Neo4J User Node: %v", err)
+		log.Error("UserImportWorker Failed to create Neo4J User Node: %v", err)
 		log.Error(err)
 		log.Error(res)
 		return
@@ -98,23 +98,24 @@ func UserImportWorker(message *workers.Msg) {
 	secondSlice, _ := firstSlice.(map[string]interface{})
 	thirdPass, _ := secondSlice["id"].(float64)
 	nodeIDInt = int(thirdPass)
-	log.Info("Successfully imported to Neo4J %v", nodeIDInt)
+	log.Info("UserImportWorker Successfully imported to Neo4J %v", nodeIDInt)
 
 	if err != nil {
-		log.Error("Couldn't parse Node ID to INT")
-		return
-	}
-	if nodeIDInt == 0 {
-		log.Error("User node id shouldn't be 0")
+		log.Error("UserImportWorker Couldn't parse Node ID to INT")
 		return
 	}
 
-	// Enqueue Media and Follows Importer for new Neo IG User
+	// if nodeIDInt == 0 {
+	// 	log.Error("UserImportWorker User node id shouldn't be 0")
+	// 	return
+	// }
+
+	//Enqueue Media and Follows Importer for new Neo IG User
 	workers.Enqueue("instagramediaimportworker", "InstagramMediaImportWorker", []string{igUID, igToken, "", string(nodeIDInt)})
-	// Enqueue Follows Importer for new Neo IG User
+	//Enqueue Follows Importer for new Neo IG User
 	workers.Enqueue("followsimportworker", "FollowsImportWorker", []string{igUID, igToken, "", string(nodeIDInt)})
 
-	// Enqueue Recent Followers
+	//Enqueue Recent Followers
 	workers.Enqueue("followersimportworker", "FollowersImportWorker", []string{igUID, igToken, "", "", string(6)})
 	return
 }
