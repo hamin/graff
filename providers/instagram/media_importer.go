@@ -64,10 +64,10 @@ func MediaImportWorker(message *workers.Msg) {
 		log.Error("Error: %v\n", err)
 		if (err == nil) && (maxID != "") {
 			log.Info("Instagram API Failed, Enqueuing Again with MaxID: ", maxID)
-			workers.Enqueue("instagramediaimportworker", "InstagramMediaImportWorker", []string{igUID, igToken, maxID, string(userNeoNodeID)})
+			workers.EnqueueIn("instagramediaimportworker", "InstagramMediaImportWorker", 3600.0, []string{igUID, igToken, maxID, string(userNeoNodeID)})
 		} else {
 			log.Info("Instagram API Failed, Enqueuing Again")
-			workers.Enqueue("instagramediaimportworker", "InstagramMediaImportWorker", []string{igUID, igToken, "", string(userNeoNodeID)})
+			workers.EnqueueIn("instagramediaimportworker", "InstagramMediaImportWorker", 3600.0, []string{igUID, igToken, "", string(userNeoNodeID)})
 		}
 		return
 	}

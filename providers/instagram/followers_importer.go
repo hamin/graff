@@ -13,10 +13,10 @@ import (
 
 func FollowersImportWorker(message *workers.Msg) {
 	igUID, igUIDErr := message.Args().GetIndex(0).String()
-	log.Info("Starting NeoMedia Import process: ", igUID)
+	log.Info("Starting FollowersImportWorker Import process: ", igUID)
 
 	igToken, igTokenErr := message.Args().GetIndex(1).String()
-	log.Info("Starting NeoMedia Import process: ", igToken)
+	log.Info("Starting FollowersImportWorker Import process: ", igToken)
 
 	cursorString, cursorErr := message.Args().GetIndex(2).String()
 	cursor, _ := strconv.Atoi(cursorString)
@@ -27,11 +27,11 @@ func FollowersImportWorker(message *workers.Msg) {
 	followersLimit, _ := strconv.Atoi(followersLimitString)
 
 	if igUIDErr != nil {
-		log.Error("Missing IG User ID")
+		log.Error("FollowersImportWorker: Missing IG User ID")
 	}
 
 	if igTokenErr != nil {
-		log.Error("Mssing IG Token")
+		log.Error("FollowersImportWorker: Mssing IG Token")
 	}
 
 	// if userNeoNodeIDErr != nil {
@@ -56,20 +56,22 @@ func FollowersImportWorker(message *workers.Msg) {
 
 	users, _, err := client.Relationships.FollowedBy("", opt)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		log.Error("FollowersImportWorkerError:", err)
+		workers.EnqueueIn("followersimportworker", "FollowersImportWorker", 3600.0, []string{igUID, igToken, "", "", string(6)})
+		return
 	}
 
 	neoHost := os.Getenv("NEO4JURI")
 	neo4jConnection := neo4j.Connect(neoHost)
 
 	for _, u := range users {
-		fmt.Printf("ID: %v, Username: %v\n", u.ID, u.Username)
+		log.Info("ID: %v, Username: %v\n", u.ID, u.Username)
 		// Query if we already have imported user to Neo
 		query := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' return id(c)", u.ID)
-		log.Info("THIS IS IG USER CYPHER QUERY: %v", query) // Confirm this Cypher Query
+		log.Info("FollowersImportWorker: THIS IS IG USER CYPHER QUERY: %v", query) // Confirm this Cypher Query
 		_, neoExistingUserErr := neohelpers.FindByCypher(neo4jConnection, query)
 		if neoExistingUserErr != nil {
-			log.Info("We should create this user on neo")
+			log.Info("FollowersImportWorker: We should create this user on neo, enqueue!")
 			workers.Enqueue("instagramuserimportworker", "InstagramUserImportWorker", []string{u.ID, igToken})
 		}
 	}

@@ -115,6 +115,6 @@ func UserImportWorker(message *workers.Msg) {
 	workers.Enqueue("followsimportworker", "FollowsImportWorker", []string{igUID, igToken, "", string(nodeIDInt)})
 
 	// Enqueue Recent Followers
-	workers.Enqueue("followersimportworker", "FollowersImportWorker", []string{igUID, igToken, "", string(nodeIDInt), string(6)})
+	workers.Enqueue("followersimportworker", "FollowersImportWorker", []string{igUID, igToken, "", "", string(6)})
 	return
 }
