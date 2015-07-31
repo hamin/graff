@@ -11,3 +11,19 @@ GRAFF - A Social Graph API
 2. Run `goop install`
 
 3. Build worker `goop go build worker.go`
+
+
+### Neo4J Indexes
+
+[Neo4J Schema Index Docs](http://neo4j.com/docs/stable/query-schema-index.html)
+
+We have to create the following indexs (these are nodes that we directly query with the 'WHERE' clause):
+
+```
+CREATE INDEX ON :InstagramUser(InstagramID)
+```
+
+```
+CREATE INDEX ON :InstagramLocation(InstagramID)
+```
+
