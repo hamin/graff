@@ -56,7 +56,7 @@ func UserImportWorker(message *workers.Msg) {
 			response, updateUserError := neohelpers.UpdateNodeWithCypher(neo4jConnection, updateQuery)
 			if updateUserError == nil {
 				log.Info("UserImportWorker: UPDATING NODE WITH CYPHER: ", response)
-				workers.Enqueue("instagramediaimportworker", "InstagramMediaImportWorker", []string{igUID, igToken, "", currentUserNodeId})
+				workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{igUID, igToken, "", currentUserNodeId})
 				return
 			}
 			log.Error("UserimportWorker: error updating user", updateUserError)
@@ -74,7 +74,7 @@ func UserImportWorker(message *workers.Msg) {
 		log.Error("UserImportWorker: Error: %v\n", igErr)
 		log.Error("UserImportWorker: No IG user found: ", igUID)
 		log.Info("UserImportWorker: Instagram API Failed, Enqueuing User Import Again With IGUID: ", igUID)
-		//workers.Enqueue("instagramuserimportworker", "InstagramUserImportWorker", []string{igUID, igToken})
+		workers.Enqueue("instagramuserimportworker", "UserImportWorker", []string{igUID, igToken})
 		return
 	}
 
@@ -120,9 +120,9 @@ func UserImportWorker(message *workers.Msg) {
 	}
 
 	//Enqueue Media and Follows Importer for new Neo IG User
-	//workers.Enqueue("instagramediaimportworker", "InstagramMediaImportWorker", []string{igUID, igToken, "", string(nodeIDInt)})
+	//workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{igUID, igToken, "", string(nodeIDInt)})
 	//Enqueue Follows Importer for new Neo IG User
-	workers.Enqueue("followsimportworker", "FollowsImportWorker", []string{igUID, igToken, "", string(nodeIDInt)})
+	workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{igUID, igToken, "", string(nodeIDInt)})
 
 	//Enqueue Recent Followers
 	//workers.Enqueue("followersimportworker", "FollowersImportWorker", []string{igUID, igToken, "", "", string(6)})

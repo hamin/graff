@@ -68,10 +68,10 @@ func MediaImportWorker(message *workers.Msg) {
 		log.Error("Error: %v\n", err)
 		if (err == nil) && (maxID != "") {
 			log.Info("MediaImportWorker: Instagram API Failed, Enqueuing Again with MaxID: ", maxID)
-			workers.EnqueueIn("instagramediaimportworker", "InstagramMediaImportWorker", 3600.0, []string{igUID, igToken, maxID, string(userNeoNodeID)})
+			workers.EnqueueIn("instagramediaimportworker", "MediaImportWorker", 3600.0, []string{igUID, igToken, maxID, string(userNeoNodeID)})
 		} else {
 			log.Info("MediaImportWorker: Instagram API Failed, Enqueuing Again")
-			workers.EnqueueIn("instagramediaimportworker", "InstagramMediaImportWorker", 3600.0, []string{igUID, igToken, "", string(userNeoNodeID)})
+			workers.EnqueueIn("instagramediaimportworker", "MediaImportWorker", 3600.0, []string{igUID, igToken, "", string(userNeoNodeID)})
 		}
 		return
 	}
@@ -204,7 +204,7 @@ func MediaImportWorker(message *workers.Msg) {
 
 		if next.NextMaxID != "" {
 			log.Info("MediaImportWorker *** This is our next.NextMaxID ", next.NextMaxID)
-			workers.Enqueue("instagramediaimportworker", "InstagramMediaImportWorker", []string{igUID, igToken, next.NextMaxID, string(userNeoNodeID)})
+			workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{igUID, igToken, next.NextMaxID, string(userNeoNodeID)})
 			log.Info("MediaImportWorker Enqueued Next Pagination Media Import!!!")
 		} else {
 			log.Info("MediaImportWorker: Done Importing Media for IG User!")

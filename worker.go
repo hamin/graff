@@ -42,8 +42,8 @@ func main() {
 	// pull messages from "myqueue" with concurrency of 10
 	workers.Process("instagramediaimportworker", instagram.MediaImportWorker, 10)
 	workers.Process("instagramuserimportworker", instagram.UserImportWorker, 10)
-	workers.Process("followsimportworker", instagram.FollowsImportWorker, 10)
-	workers.Process("followersimportworker", instagram.FollowersImportWorker, 10)
+	workers.Process("instagramfollowsimportworker", instagram.FollowsImportWorker, 10)
+	workers.Process("instagramfollowersimportworker", instagram.FollowersImportWorker, 10)
 
 	// stats will be available at http://localhost:8080/stats
 	go workers.StatsServer(5000)
