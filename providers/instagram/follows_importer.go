@@ -66,10 +66,6 @@ func FollowsImportWorker(message *workers.Msg) {
 	//a relationship with the main node
 	for _, u := range users {
 		fmt.Printf("FollowsImportWorker: ID: %v, Username: %v\n", u.ID, u.Username)
-		// // Query if we already have imported user to Neo
-		// query := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' return id(c)", u.ID)
-		// log.Info("FollowsImportWorker: THIS IS IG USER CYPHER QUERY: %v", query) // Confirm this Cypher Query
-		// exstingIGUserNeoNodeID, neoExistingUserErr := neohelpers.FindIDByCypher(neo4jConnection, query)
 		// Query if we already have imported user to Neo
 		query := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' return id(c), c.MediaDataImportStarted, c.MediaDataImportFinished", u.ID)
 		log.Info("FollowsImportWorker: THIS IS IG USER CYPHER QUERY: %v ", query) // Confirm this Cypher Query
@@ -99,8 +95,8 @@ func FollowsImportWorker(message *workers.Msg) {
 
 			neohelpers.AddLabelOperation(&batchOperations, nodeIdx, "InstagramUser")
 			neohelpers.AddRelationshipOperation(&batchOperations, int(userNeoNodeID), nodeIdx, true, false, "instagram_follows")
+			nodeIdx++
 		}
-		nodeIdx++
 	}
 
 	for _, batchOp := range batchOperations {
