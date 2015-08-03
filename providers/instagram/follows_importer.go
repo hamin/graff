@@ -23,7 +23,9 @@ func FollowsImportWorker(message *workers.Msg) {
 	cursorString, cursorErr := message.Args().GetIndex(2).String()
 	cursor, _ := strconv.Atoi(cursorString)
 
-	userNeoNodeID, userNeoNodeIDErr := message.Args().GetIndex(3).Int()
+	userNeoNodeIDRaw, userNeoNodeIDErr := message.Args().GetIndex(3).String()
+	userNeoNodeID, _ := strconv.Atoi(userNeoNodeIDRaw)
+
 	if igUIDErr != nil {
 		log.Error("FollowsImportWorker: Missing IG User ID")
 	}
@@ -64,11 +66,25 @@ func FollowsImportWorker(message *workers.Msg) {
 	//a relationship with the main node
 	for _, u := range users {
 		fmt.Printf("FollowsImportWorker: ID: %v, Username: %v\n", u.ID, u.Username)
+		// // Query if we already have imported user to Neo
+		// query := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' return id(c)", u.ID)
+		// log.Info("FollowsImportWorker: THIS IS IG USER CYPHER QUERY: %v", query) // Confirm this Cypher Query
+		// exstingIGUserNeoNodeID, neoExistingUserErr := neohelpers.FindIDByCypher(neo4jConnection, query)
 		// Query if we already have imported user to Neo
-		query := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' return id(c)", u.ID)
-		log.Info("FollowsImportWorker: THIS IS IG USER CYPHER QUERY: %v", query) // Confirm this Cypher Query
-		exstingIGUserNeoNodeID, neoExistingUserErr := neohelpers.FindByCypher(neo4jConnection, query)
-		if neoExistingUserErr != nil {
+		query := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' return id(c), c.MediaDataImportStarted, c.MediaDataImportFinished", u.ID)
+		log.Info("FollowsImportWorker: THIS IS IG USER CYPHER QUERY: %v ", query) // Confirm this Cypher Query
+
+		response, _ := neohelpers.FindUserByCypher(neo4jConnection, query)
+		log.Info("FollowsImportWorker: exstingIGUserNeoNodeID: ", response)
+
+		if len(response) > 0 {
+			userResponse, ok := response[0].([]interface{})
+			if userResponse[0] != nil && ok {
+				currentUserNodeId, _ := userResponse[0].(int)
+				log.Info("FollowsImportWorker: currentUserNodeId", currentUserNodeId) // Confirm this Cypher Query
+				neohelpers.AddRelationshipOperation(&batchOperations, int(userNeoNodeID), currentUserNodeId, true, true, "instagram_follows")
+			}
+		} else {
 			log.Info("FollowsImportWorker: We should create this user on neo!")
 			node := &neo4j.Node{}
 			igNeoUser := User{}
@@ -76,24 +92,13 @@ func FollowsImportWorker(message *workers.Msg) {
 			igNeoUser.FullName = u.FullName
 			igNeoUser.ProfilePicture = u.ProfilePicture
 			igNeoUser.Username = u.Username
+			igNeoUser.MediaDataImportStarted = false
 
 			node.Data = structs.Map(igNeoUser)
 			batch.Create(node)
 
-			// unique := &neo4j.Unique{}
-			// unique.IndexName = "ig_user_uid"
-			// unique.Key = "InstagramID"
-			// unique.Value = fmt.Sprintf("iguser%s", u.ID)
-
-			// batch.CreateUnique(node, unique)
-
-			batch.Create(node)
 			neohelpers.AddLabelOperation(&batchOperations, nodeIdx, "InstagramUser")
 			neohelpers.AddRelationshipOperation(&batchOperations, int(userNeoNodeID), nodeIdx, true, false, "instagram_follows")
-
-		} else {
-			log.Info("FollowsImportWorker: exstingIGUserNeoNodeID", exstingIGUserNeoNodeID) // Confirm this Cypher Query
-			neohelpers.AddRelationshipOperation(&batchOperations, int(userNeoNodeID), exstingIGUserNeoNodeID, true, true, "instagram_follows")
 		}
 		nodeIdx++
 	}
