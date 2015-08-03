@@ -2,15 +2,17 @@ package instagram
 
 // User - IG User
 type User struct {
-	InstagramID     string
-	Username        string
-	FullName        string
-	ProfilePicture  string
-	Bio             string
-	Website         string
-	MediaCount      int
-	FollowsCount    int
-	FollowedByCount int
+	InstagramID             string
+	Username                string
+	FullName                string
+	ProfilePicture          string
+	Bio                     string
+	Website                 string
+	MediaCount              int
+	FollowsCount            int
+	FollowedByCount         int
+	MediaDataImportStarted  bool
+	MediaDataImportFinished bool
 }
 
 // MediaItem - This is media object from IG

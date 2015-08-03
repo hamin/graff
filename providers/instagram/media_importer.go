@@ -150,7 +150,7 @@ func MediaImportWorker(message *workers.Msg) {
 				query := fmt.Sprintf("match (c:InstagramLocation) where c.InstagramID = '%v' return id(c)", m.Location.ID)
 				log.Info("MediaImportWorker: THIS IS THE IGVENUE INSTAGRAM ID: %v", m.Location.ID)
 				log.Info("MediaImportWorker: THIS IS CYPHER QUERY: %v", query)
-				exstingLocationNeoNodeID, err := neohelpers.FindByCypher(neo4jConnection, query)
+				exstingLocationNeoNodeID, err := neohelpers.FindIDByCypher(neo4jConnection, query)
 				log.Info("MediaImportWorker: THIS IS THE NODEID FOR THE VENUE: %v", exstingLocationNeoNodeID)
 
 				if err != nil {
@@ -208,6 +208,14 @@ func MediaImportWorker(message *workers.Msg) {
 			log.Info("MediaImportWorker Enqueued Next Pagination Media Import!!!")
 		} else {
 			log.Info("MediaImportWorker: Done Importing Media for IG User!")
+			//We should mark this user data as finished importing
+			updateQuery := fmt.Sprintf("match (c:InstagramUser) where id(c)= %v SET c.MediaDataImportFinished=true", userNeoNodeID)
+			response, updateUserError := neohelpers.UpdateNodeWithCypher(neo4jConnection, updateQuery)
+			if updateUserError == nil {
+				log.Info("MediaImportWorker: UPDATING NODE WITH CYPHER successfully MediaDataImportFinished=true", response)
+			} else {
+				log.Error("UserimportWorker: error updating user MediaDataImportFinished :(", updateUserError)
+			}
 		}
 	}
 

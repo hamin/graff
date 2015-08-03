@@ -47,11 +47,22 @@ func UserImportWorker(message *workers.Msg) {
 		if userResponse[1] == true && ok {
 			log.Info("UserImportWorker: Nothing to do, we have user and media.")
 			return
-		} else {
-			log.Info("UserImportWorker: Importing media for already created user")
-			//workers.Enqueue("instagramediaimportworker", "InstagramMediaImportWorker", []string{igUID, igToken, "", string(userResponse[0])})
-			return
 		}
+		if userResponse[0] != nil && ok {
+			log.Info("UserImportWorker: Importing media for already created user")
+			currentUserNodeId, _ := userResponse[0].(string)
+			updateQuery := fmt.Sprintf("match (c:InstagramUser) where id(c)= %v SET c.MediaDataImportStarted=true", userResponse[0])
+			log.Info("UserImportWorker: QUERY: ", updateQuery)
+			response, updateUserError := neohelpers.UpdateNodeWithCypher(neo4jConnection, updateQuery)
+			if updateUserError == nil {
+				log.Info("UserImportWorker: UPDATING NODE WITH CYPHER: ", response)
+				workers.Enqueue("instagramediaimportworker", "InstagramMediaImportWorker", []string{igUID, igToken, "", currentUserNodeId})
+				return
+			}
+			log.Error("UserimportWorker: error updating user", updateUserError)
+		}
+		log.Error("UserImportWorker: User data didn't get imported and won't get imported")
+		return
 	}
 
 	client := instagram.NewClient(nil)

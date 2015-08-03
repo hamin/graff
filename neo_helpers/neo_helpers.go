@@ -13,6 +13,30 @@ var neoHelpers NeoHelpers
 type NeoHelpers struct {
 }
 
+func UpdateNodeWithCypher(neo4jConnection *neo4j.Neo4j, query string) ([]interface{}, error) {
+	cypher := &neo4j.Cypher{
+		Query: map[string]string{
+			"query": query,
+		},
+		Payload: map[string]interface{}{},
+	}
+
+	batch := neo4jConnection.NewBatch()
+	batch.Create(cypher)
+	_, err := batch.Execute()
+	if err != nil {
+		log.Error("Cypher error: %v", err)
+		return nil, err
+	}
+	if cypher.Payload.(map[string]interface{})["data"] == nil {
+		log.Info("NO DATA FROM CYPHER")
+		return nil, errors.New("NO DATA FROM CYPHER")
+	}
+	data, _ := cypher.Payload.(map[string]interface{})["data"].([]interface{})
+	return data, nil
+
+}
+
 func FindUserByCypher(neo4jConnection *neo4j.Neo4j, query string) ([]interface{}, error) {
 	cypher := &neo4j.Cypher{
 		Query: map[string]string{
