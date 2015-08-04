@@ -33,7 +33,7 @@ func MediaImportWorker(message *workers.Msg) {
 	userNeoNodeIDRaw, userNeoNodeIDErr := message.Args().GetIndex(3).String()
 
 	if userNeoNodeIDRaw == "" {
-		log.Error("MediaImportWorker: Shit is broken")
+		log.Error("MediaImportWorker: Shit is broken userNeoNodeIDRaw ", userNeoNodeIDRaw)
 		return
 	}
 
@@ -73,10 +73,10 @@ func MediaImportWorker(message *workers.Msg) {
 		log.Error("Error: %v\n", err)
 		if (err == nil) && (maxID != "") {
 			log.Info("MediaImportWorker: Instagram API Failed, Enqueuing Again with MaxID: ", maxID)
-			workers.EnqueueIn("instagramediaimportworker", "MediaImportWorker", 3600.0, []string{igUID, igToken, maxID, string(userNeoNodeID)})
+			workers.EnqueueIn("instagramediaimportworker", "MediaImportWorker", 3600.0, []string{igUID, igToken, maxID, userNeoNodeIDRaw})
 		} else {
 			log.Info("MediaImportWorker: Instagram API Failed, Enqueuing Again")
-			workers.EnqueueIn("instagramediaimportworker", "MediaImportWorker", 3600.0, []string{igUID, igToken, "", string(userNeoNodeID)})
+			workers.EnqueueIn("instagramediaimportworker", "MediaImportWorker", 3600.0, []string{igUID, igToken, "", userNeoNodeIDRaw})
 		}
 		return
 	}
@@ -207,11 +207,11 @@ func MediaImportWorker(message *workers.Msg) {
 
 		if next.NextMaxID != "" {
 			// log.Info("MediaImportWorker *** This is our next.NextMaxID ", next.NextMaxID)
-			workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{igUID, igToken, next.NextMaxID, string(userNeoNodeID)})
+			workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{igUID, igToken, next.NextMaxID, userNeoNodeIDRaw})
 		} else {
 			log.Info("MediaImportWorker: Done Importing Media for IG User!")
 			//We should mark this user data as finished importing
-			updateQuery := fmt.Sprintf("match (c:InstagramUser) where id(c)= %v SET c.MediaDataImportFinished=true", userNeoNodeID)
+			updateQuery := fmt.Sprintf("match (c:InstagramUser) where id(c)= %v SET c.MediaDataImportFinished=true", userNeoNodeIDRaw)
 			response, updateUserError := neohelpers.UpdateNodeWithCypher(neo4jConnection, updateQuery)
 			if updateUserError == nil {
 				log.Info("MediaImportWorker: UPDATING NODE WITH CYPHER successfully MediaDataImportFinished=true", response)

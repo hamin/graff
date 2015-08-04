@@ -28,6 +28,11 @@ func FollowersImportWorker(message *workers.Msg) {
 	followersLimitString, followersLimitError := message.Args().GetIndex(4).String()
 	followersLimit, _ := strconv.Atoi(followersLimitString)
 
+	if userNeoNodeIDRaw == "" {
+		log.Error("FollowersImportWorker: Shit is broken!!! ", userNeoNodeIDRaw)
+		return
+	}
+
 	if igUIDErr != nil {
 		log.Error("FollowersImportWorker: Missing IG User ID")
 		return

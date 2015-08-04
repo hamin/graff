@@ -26,6 +26,11 @@ func FollowsImportWorker(message *workers.Msg) {
 	userNeoNodeIDRaw, userNeoNodeIDErr := message.Args().GetIndex(3).String()
 	userNeoNodeID, _ := strconv.Atoi(userNeoNodeIDRaw)
 
+	if userNeoNodeIDRaw == "" {
+		log.Error("FollowsImportWorker: Shit is broken!!! ", userNeoNodeIDRaw)
+		return
+	}
+
 	if igUIDErr != nil {
 		log.Error("FollowsImportWorker: Missing IG User ID")
 		return
@@ -55,7 +60,7 @@ func FollowsImportWorker(message *workers.Msg) {
 	if err != nil {
 		log.Error("FollowsImportWorker:", err)
 		log.Error("FollowsImportWorker: Enqueing back in 1 hour")
-		workers.EnqueueIn("followsimportworker", "FollowsImportWorker", 3600.0, []string{igUID, igToken, "", string(userNeoNodeID)})
+		workers.EnqueueIn("followsimportworker", "FollowsImportWorker", 3600.0, []string{igUID, igToken, "", userNeoNodeIDRaw})
 		return
 	}
 	neoHost := os.Getenv("NEO4JURI")
@@ -79,9 +84,9 @@ func FollowsImportWorker(message *workers.Msg) {
 		if len(response) > 0 {
 			userResponse, ok := response[0].([]interface{})
 			if userResponse[0] != nil && ok {
-				currentUserNodeId, _ := userResponse[0].(int)
+				currentUserNodeIdRaw, _ := userResponse[0].(float64)
 				//log.Info("FollowsImportWorker: currentUserNodeId", currentUserNodeId) // Confirm this Cypher Query
-				neohelpers.AddRelationshipOperation(&batchOperations, int(userNeoNodeID), currentUserNodeId, true, true, "instagram_follows")
+				neohelpers.AddRelationshipOperation(&batchOperations, int(userNeoNodeID), int(currentUserNodeIdRaw), true, true, "instagram_follows")
 			}
 		} else {
 			log.Info("FollowsImportWorker: We should create this user on neo!")
@@ -115,7 +120,7 @@ func FollowsImportWorker(message *workers.Msg) {
 		log.Info("FollowsImportWorker: Successfully imported Media to Neo4J")
 		if next.NextURL != "" {
 			log.Info("FollowsImportWorker: *** This is our next.NextURL ", next)
-			workers.Enqueue("followsimportworker", "FollowsImportWorker", []string{igUID, igToken, next.Cursor, string(userNeoNodeID)})
+			workers.Enqueue("followsimportworker", "FollowsImportWorker", []string{igUID, igToken, next.Cursor, userNeoNodeIDRaw})
 			//log.Info("FollowsImportWorker: Sh Next Pagination Follows Import!!!")
 		} else {
 			log.Info("FollowsImportWorker: Done Importing Follows for IG User!")

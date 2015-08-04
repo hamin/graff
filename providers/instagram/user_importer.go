@@ -11,6 +11,7 @@ import (
 	"github.com/maggit/go-instagram/instagram"
 	"os"
 	"reflect"
+	"strconv"
 )
 
 // UserImportWorker Imports Instagram media to Neo4J
@@ -24,10 +25,12 @@ func UserImportWorker(message *workers.Msg) {
 
 	if igUIDErr != nil {
 		log.Error("UserImportWorker: Missing IG User ID")
+		return
 	}
 
 	if igTokenErr != nil {
 		log.Error("UserImportWorker: Mssing IG Token")
+		return
 	}
 
 	neoHost := os.Getenv("NEO4JURI")
@@ -50,7 +53,8 @@ func UserImportWorker(message *workers.Msg) {
 		}
 		if userResponse[0] != nil && ok {
 			log.Info("UserImportWorker: Importing media for already created user")
-			currentUserNodeId, _ := userResponse[0].(string)
+			currentUserNodeIdRaw, _ := userResponse[0].(float64)
+			var currentUserNodeId = strconv.FormatFloat(currentUserNodeIdRaw, 'f', 0, 64)
 			updateQuery := fmt.Sprintf("match (c:InstagramUser) where id(c)= %v SET c.MediaDataImportStarted=true", userResponse[0])
 			log.Info("UserImportWorker: QUERY: ", updateQuery)
 			response, updateUserError := neohelpers.UpdateNodeWithCypher(neo4jConnection, updateQuery)
@@ -99,7 +103,7 @@ func UserImportWorker(message *workers.Msg) {
 	manuelLabel.To = "{0}/labels"
 	manuelLabel.StringBody = "InstagramUser"
 	batch.Create(manuelLabel)
-	var nodeIDInt int
+	// var nodeIDInt int
 	res, err := batch.Execute()
 	if err != nil {
 		log.Error("UserImportWorker: Failed to create Neo4J User Node: %v", err)
@@ -111,8 +115,8 @@ func UserImportWorker(message *workers.Msg) {
 	firstSlice, _ := res[0].Body.(map[string]interface{})["metadata"]
 	secondSlice, _ := firstSlice.(map[string]interface{})
 	thirdPass, _ := secondSlice["id"].(float64)
-	nodeIDInt = int(thirdPass)
-	log.Info("UserImportWorker: Successfully imported to Neo4J %v ", nodeIDInt)
+	var nodeIDString = strconv.FormatFloat(thirdPass, 'f', 0, 64)
+	log.Info("UserImportWorker: Successfully imported to Neo4J %v ", nodeIDString)
 
 	if err != nil {
 		log.Error("UserImportWorker: Couldn't parse Node ID to INT")
@@ -120,11 +124,11 @@ func UserImportWorker(message *workers.Msg) {
 	}
 
 	//Enqueue Media and Follows Importer for new Neo IG User
-	workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{igUID, igToken, "", string(nodeIDInt)})
+	workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{igUID, igToken, "", nodeIDString})
 	//Enqueue Follows Importer for new Neo IG User
-	workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{igUID, igToken, "", string(nodeIDInt)})
+	workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{igUID, igToken, "", nodeIDString})
 
 	//Enqueue Recent Followers
-	workers.Enqueue("instagramfollowersimportworker", "FollowersImportWorker", []string{igUID, igToken, "", "", string(6)})
+	workers.Enqueue("instagramfollowersimportworker", "FollowersImportWorker", []string{igUID, igToken, "", nodeIDString, string(6)})
 	return
 }
