@@ -60,7 +60,11 @@ func FollowsImportWorker(message *workers.Msg) {
 	if err != nil {
 		log.Error("FollowsImportWorker:", err)
 		log.Error("FollowsImportWorker: Enqueing back in 1 hour")
-		workers.EnqueueIn("followsimportworker", "FollowsImportWorker", 3600.0, []string{igUID, igToken, "", userNeoNodeIDRaw})
+		if next.Cursor != "" {
+			workers.EnqueueIn("instagramfollowsimportworker", "FollowsImportWorker", 3600.0, []string{igUID, igToken, next.Cursor, userNeoNodeIDRaw})
+		} else {
+			workers.EnqueueIn("instagramfollowsimportworker", "FollowsImportWorker", 3600.0, []string{igUID, igToken, "", userNeoNodeIDRaw})
+		}
 		return
 	}
 	neoHost := os.Getenv("NEO4JURI")
@@ -118,9 +122,9 @@ func FollowsImportWorker(message *workers.Msg) {
 		log.Error(res)
 	} else {
 		log.Info("FollowsImportWorker: Successfully imported Media to Neo4J")
-		if next.NextURL != "" {
-			log.Info("FollowsImportWorker: *** This is our next.NextURL ", next)
-			workers.Enqueue("followsimportworker", "FollowsImportWorker", []string{igUID, igToken, next.Cursor, userNeoNodeIDRaw})
+		if next.Cursor != "" {
+			log.Info("FollowsImportWorker: *** This is our next.Cursor ", next.Cursor)
+			workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{igUID, igToken, next.Cursor, userNeoNodeIDRaw})
 			//log.Info("FollowsImportWorker: Sh Next Pagination Follows Import!!!")
 		} else {
 			log.Info("FollowsImportWorker: Done Importing Follows for IG User!")

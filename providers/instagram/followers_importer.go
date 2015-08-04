@@ -29,7 +29,7 @@ func FollowersImportWorker(message *workers.Msg) {
 	followersLimit, _ := strconv.Atoi(followersLimitString)
 
 	if userNeoNodeIDRaw == "" {
-		log.Error("FollowersImportWorker: Shit is broken!!! ", userNeoNodeIDRaw)
+		log.Error("FollowersImportWorker: Shit is broken MISSING userNeoNodeIDRaw!!! ", userNeoNodeIDRaw)
 		return
 	}
 
@@ -68,7 +68,7 @@ func FollowersImportWorker(message *workers.Msg) {
 	users, _, err := client.Relationships.FollowedBy("", opt)
 	if err != nil {
 		log.Error("FollowersImportWorkerError:", err)
-		workers.EnqueueIn("followersimportworker", "FollowersImportWorker", 3600.0, []string{igUID, igToken, "", "", string(6)})
+		workers.EnqueueIn("instagramfollowersimportworker", "FollowersImportWorker", 3600.0, []string{igUID, igToken, "", userNeoNodeIDRaw, string(6)})
 		return
 	}
 
