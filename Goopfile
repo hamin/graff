@@ -1,6 +1,6 @@
 
 github.com/jrallison/go-workers
-github.com/maggit/go-instagram/instagram #d99b85c50f84bef5ed837d6c2f8782af84d441ed
+github.com/maggit/go-instagram/instagram #1b7258747558e200ae3820ea6819e4c081e962ba
 github.com/cihangir/neo4j
 github.com/Sirupsen/logrus
 github.com/fatih/structs
