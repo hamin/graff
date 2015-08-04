@@ -9,7 +9,6 @@ import (
 	"github.com/jrallison/go-workers"
 	"github.com/maggit/go-instagram/instagram"
 	"os"
-	"reflect"
 	"strconv"
 )
 
@@ -31,14 +30,17 @@ func FollowersImportWorker(message *workers.Msg) {
 
 	if igUIDErr != nil {
 		log.Error("FollowersImportWorker: Missing IG User ID")
+		return
 	}
 
 	if igTokenErr != nil {
 		log.Error("FollowersImportWorker: Mssing IG Token")
+		return
 	}
 
 	if userNeoNodeIDErr != nil {
 		log.Error("FollowersImportWorker: Missing IG User Neo Node ID")
+		return
 	}
 
 	client := instagram.NewClient(nil)
@@ -83,19 +85,19 @@ func FollowersImportWorker(message *workers.Msg) {
 
 		// Query if we already have imported user to Neo
 		query := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' return id(c), c.MediaDataImportStarted, c.MediaDataImportFinished", u.ID)
-		log.Info("FollowersImportWorker: THIS IS IG USER CYPHER QUERY: %v ", query) // Confirm this Cypher Query
+		//log.Info("FollowersImportWorker: THIS IS IG USER CYPHER QUERY: %v ", query) // Confirm this Cypher Query
 
 		response, _ := neohelpers.FindUserByCypher(neo4jConnection, query)
-		log.Info("FollowersImportWorker: exstingIGUserNeoNodeID: ", response)
+		//log.Info("FollowersImportWorker: exstingIGUserNeoNodeID: ", response)
 
 		if len(response) > 0 {
 			// User Exists just Add Neo Relationship
 			userResponse, ok := response[0].([]interface{})
 			if userResponse[0] != nil && ok {
 				currentUserNodeId, _ := userResponse[0].(int)
-				log.Info("FollowersImportWorker: currentUserNodeId", currentUserNodeId)
+				//log.Info("FollowersImportWorker: currentUserNodeId", currentUserNodeId)
 				neohelpers.AddRelationshipOperation(&batchOperations, currentUserNodeId, int(userNeoNodeID), true, true, "instagram_follows")
-				log.Info("FollowersImportWorker: we should check if MediaDataImported is true or enque media import for this user", currentUserNodeId)
+				//log.Info("FollowersImportWorker: we should check if MediaDataImported is true or enque media import for this user", currentUserNodeId)
 			}
 		} else {
 			// Create Neo User
@@ -107,14 +109,12 @@ func FollowersImportWorker(message *workers.Msg) {
 			igNeoUser.FullName = u.FullName
 			igNeoUser.ProfilePicture = u.ProfilePicture
 			igNeoUser.Username = u.Username
-			igNeoUser.MediaDataImportStarted = false
+			igNeoUser.MediaDataImportStarted = true
 
 			node.Data = structs.Map(igNeoUser)
 			batch.Create(node)
 			neohelpers.AddLabelOperation(&batchOperations, nodeIdx, "InstagramUser")
 			neohelpers.AddRelationshipOperation(&batchOperations, nodeIdx, int(userNeoNodeID), false, true, "instagram_follows")
-			log.Info("FollowersImportWorker: This is the nodeIdx ", nodeIdx)
-			log.Info("FollowersImportWorker: This is the userNeoNodeID ", int(userNeoNodeID))
 			nodeIdx++
 		}
 	}
@@ -125,14 +125,24 @@ func FollowersImportWorker(message *workers.Msg) {
 
 	res, err := batch.Execute()
 	log.Info("RESPONSE FROM NEO$J FOR FOLLOWERS IMPORTER!!!!")
-	log.Info(res)
-	log.Info(reflect.TypeOf(res))
 	if err != nil {
 		log.Error("FollowersImportWorker: THERE WAS AN ERROR EXECUTING BATCH!!!!")
 		log.Error(err)
 		log.Error(res)
 	} else {
 		log.Info("FollowersImportWorker: Successfully imported Media to Neo4J")
-		log.Info("FollowersImportWorker: Done Importing Followers for IG User!")
+		for _, r := range res {
+			if r.Body != nil && r.Body.(map[string]interface{})["data"] != nil && r.Body.(map[string]interface{})["data"].(map[string]interface{}) != nil {
+				data, _ := r.Body.(map[string]interface{})["data"].(map[string]interface{})
+				if data["InstagramID"] != nil {
+					dataInstagramID, _ := data["InstagramID"].(string)
+					metaData, _ := r.Body.(map[string]interface{})["metadata"].(map[string]interface{})
+					metaDataNeoIDRaw, _ := metaData["id"].(float64)
+					var metaDataNeoID = strconv.FormatFloat(metaDataNeoIDRaw, 'f', 0, 64)
+					workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{dataInstagramID, igToken, "", metaDataNeoID})
+				}
+			}
+		}
+
 	}
 }

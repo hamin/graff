@@ -28,14 +28,17 @@ func FollowsImportWorker(message *workers.Msg) {
 
 	if igUIDErr != nil {
 		log.Error("FollowsImportWorker: Missing IG User ID")
+		return
 	}
 
 	if igTokenErr != nil {
 		log.Error("FollowsImportWorker: Mssing IG Token")
+		return
 	}
 
 	if userNeoNodeIDErr != nil {
 		log.Error("FollowsImportWorker: Missing IG User Neo Node ID")
+		return
 	}
 
 	client := instagram.NewClient(nil)
@@ -68,16 +71,16 @@ func FollowsImportWorker(message *workers.Msg) {
 		fmt.Printf("FollowsImportWorker: ID: %v, Username: %v\n", u.ID, u.Username)
 		// Query if we already have imported user to Neo
 		query := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' return id(c), c.MediaDataImportStarted, c.MediaDataImportFinished", u.ID)
-		log.Info("FollowsImportWorker: THIS IS IG USER CYPHER QUERY: %v ", query) // Confirm this Cypher Query
+		//log.Info("FollowsImportWorker: THIS IS IG USER CYPHER QUERY: %v ", query) // Confirm this Cypher Query
 
 		response, _ := neohelpers.FindUserByCypher(neo4jConnection, query)
-		log.Info("FollowsImportWorker: exstingIGUserNeoNodeID: ", response)
+		//log.Info("FollowsImportWorker: exstingIGUserNeoNodeID: ", response)
 
 		if len(response) > 0 {
 			userResponse, ok := response[0].([]interface{})
 			if userResponse[0] != nil && ok {
 				currentUserNodeId, _ := userResponse[0].(int)
-				log.Info("FollowsImportWorker: currentUserNodeId", currentUserNodeId) // Confirm this Cypher Query
+				//log.Info("FollowsImportWorker: currentUserNodeId", currentUserNodeId) // Confirm this Cypher Query
 				neohelpers.AddRelationshipOperation(&batchOperations, int(userNeoNodeID), currentUserNodeId, true, true, "instagram_follows")
 			}
 		} else {
@@ -113,7 +116,7 @@ func FollowsImportWorker(message *workers.Msg) {
 		if next.NextURL != "" {
 			log.Info("FollowsImportWorker: *** This is our next.NextURL ", next)
 			workers.Enqueue("followsimportworker", "FollowsImportWorker", []string{igUID, igToken, next.Cursor, string(userNeoNodeID)})
-			log.Info("FollowsImportWorker: Sh Next Pagination Follows Import!!!")
+			//log.Info("FollowsImportWorker: Sh Next Pagination Follows Import!!!")
 		} else {
 			log.Info("FollowsImportWorker: Done Importing Follows for IG User!")
 		}
