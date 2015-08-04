@@ -48,7 +48,7 @@ func UserImportWorker(message *workers.Msg) {
 		log.Info(reflect.TypeOf(response))
 		userResponse, ok := response[0].([]interface{})
 		if userResponse[1] == true && ok {
-			log.Info("UserImportWorker: Nothing to do, we have user and media.")
+			log.Info("UserImportWorker: Nothing to do, we have already imported this user data: MediaImportWorker, FollowsImportWorker, FollowersImportWorker")
 			return
 		}
 		if userResponse[0] != nil && ok {
@@ -60,7 +60,12 @@ func UserImportWorker(message *workers.Msg) {
 			response, updateUserError := neohelpers.UpdateNodeWithCypher(neo4jConnection, updateQuery)
 			if updateUserError == nil {
 				log.Info("UserImportWorker: UPDATING NODE WITH CYPHER: ", response)
+				log.Info("UserImportWorker: User exist, should enqueue MediaImportWorker")
 				workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{igUID, igToken, "", currentUserNodeId})
+				log.Info("UserImportWorker: User exist, should enqueue FollowsImportWorker")
+				workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{igUID, igToken, "", currentUserNodeId})
+				log.Info("UserImportWorker: User exist, should enqueue FollowersImportWorker")
+				workers.Enqueue("instagramfollowersimportworker", "FollowersImportWorker", []string{igUID, igToken, "", currentUserNodeId, string(6)})
 				return
 			}
 			log.Error("UserimportWorker: error updating user", updateUserError)

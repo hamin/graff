@@ -93,16 +93,16 @@ func FollowersImportWorker(message *workers.Msg) {
 		//log.Info("FollowersImportWorker: THIS IS IG USER CYPHER QUERY: %v ", query) // Confirm this Cypher Query
 
 		response, _ := neohelpers.FindUserByCypher(neo4jConnection, query)
-		//log.Info("FollowersImportWorker: exstingIGUserNeoNodeID: ", response)
 
 		if len(response) > 0 {
 			// User Exists just Add Neo Relationship
 			userResponse, ok := response[0].([]interface{})
 			if userResponse[0] != nil && ok {
-				currentUserNodeId, _ := userResponse[0].(int)
-				//log.Info("FollowersImportWorker: currentUserNodeId", currentUserNodeId)
-				neohelpers.AddRelationshipOperation(&batchOperations, currentUserNodeId, int(userNeoNodeID), true, true, "instagram_follows")
-				//log.Info("FollowersImportWorker: we should check if MediaDataImported is true or enque media import for this user", currentUserNodeId)
+				log.Info("FollowersImportWorker: userResponse", userResponse)
+				currentUserNodeIdRaw, _ := userResponse[0].(float64)
+				log.Info("FollowersImportWorker: currentUserNodeIdRaw: ", currentUserNodeIdRaw)
+				log.Info("FollowersImportWorker: userNeoNodeID: ", userNeoNodeID)
+				neohelpers.AddRelationshipOperation(&batchOperations, int(currentUserNodeIdRaw), int(userNeoNodeID), true, true, "instagram_follows")
 			}
 		} else {
 			// Create Neo User

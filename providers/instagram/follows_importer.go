@@ -83,12 +83,14 @@ func FollowsImportWorker(message *workers.Msg) {
 		//log.Info("FollowsImportWorker: THIS IS IG USER CYPHER QUERY: %v ", query) // Confirm this Cypher Query
 
 		response, _ := neohelpers.FindUserByCypher(neo4jConnection, query)
-		//log.Info("FollowsImportWorker: exstingIGUserNeoNodeID: ", response)
+		log.Info("FollowsImportWorker: exstingIGUserNeoNodeID: ", response)
 
 		if len(response) > 0 {
 			userResponse, ok := response[0].([]interface{})
 			if userResponse[0] != nil && ok {
 				currentUserNodeIdRaw, _ := userResponse[0].(float64)
+				log.Info("FollowsImportWorker: currentUserNodeIdRaw: ", currentUserNodeIdRaw)
+				log.Info("FollowsImportWorker: userNeoNodeID: ", userNeoNodeID)
 				//log.Info("FollowsImportWorker: currentUserNodeId", currentUserNodeId) // Confirm this Cypher Query
 				neohelpers.AddRelationshipOperation(&batchOperations, int(userNeoNodeID), int(currentUserNodeIdRaw), true, true, "instagram_follows")
 			}
