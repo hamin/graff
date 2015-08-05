@@ -145,6 +145,7 @@ func FollowersImportWorker(message *workers.Msg) {
 					metaDataNeoIDRaw, _ := metaData["id"].(float64)
 					var metaDataNeoID = strconv.FormatFloat(metaDataNeoIDRaw, 'f', 0, 64)
 					workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{dataInstagramID, igToken, "", metaDataNeoID})
+					workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{dataInstagramID, igToken, "", metaDataNeoID})
 				}
 			}
 		}
