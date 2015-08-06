@@ -136,9 +136,9 @@ func UserImportWorker(message *workers.Msg) {
 	}
 
 	//Enqueue Media and Follows Importer for new Neo IG User
-	//workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{igUID, igToken, "", nodeIDString})
+	workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{igUID, igToken, "", nodeIDString})
 	//Enqueue Follows Importer for new Neo IG User
-	//workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{igUID, igToken, "", nodeIDString})
+	workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{igUID, igToken, "", nodeIDString})
 
 	//Enqueue Recent Followers
 	workers.Enqueue("instagramfollowersimportworker", "FollowersImportWorker", []string{igUID, igToken, "", nodeIDString, string(6)})

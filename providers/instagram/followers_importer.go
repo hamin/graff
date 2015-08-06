@@ -22,16 +22,16 @@ func FollowersImportWorker(message *workers.Msg) {
 	cursorString, cursorErr := message.Args().GetIndex(2).String()
 	cursor, _ := strconv.Atoi(cursorString)
 
-	userNeoNodeIDRaw, userNeoNodeIDErr := message.Args().GetIndex(3).String()
+	// userNeoNodeIDRaw, userNeoNodeIDErr := message.Args().GetIndex(3).String()
 	// userNeoNodeID, _ := strconv.Atoi(userNeoNodeIDRaw)
 
 	followersLimitString, followersLimitError := message.Args().GetIndex(4).String()
 	followersLimit, _ := strconv.Atoi(followersLimitString)
 
-	if userNeoNodeIDRaw == "" {
-		log.Error("FollowersImportWorker: Shit is broken MISSING userNeoNodeIDRaw!!! ", userNeoNodeIDRaw)
-		return
-	}
+	// if userNeoNodeIDRaw == "" {
+	// 	log.Error("FollowersImportWorker: Shit is broken MISSING userNeoNodeIDRaw!!! ", userNeoNodeIDRaw)
+	// 	return
+	// }
 
 	if igUIDErr != nil {
 		log.Error("FollowersImportWorker: Missing IG User ID")
@@ -43,10 +43,10 @@ func FollowersImportWorker(message *workers.Msg) {
 		return
 	}
 
-	if userNeoNodeIDErr != nil {
-		log.Error("FollowersImportWorker: Missing IG User Neo Node ID")
-		return
-	}
+	// if userNeoNodeIDErr != nil {
+	// 	log.Error("FollowersImportWorker: Missing IG User Neo Node ID")
+	// 	return
+	// }
 
 	client := instagram.NewClient(nil)
 	client.AccessToken = igToken
@@ -60,15 +60,17 @@ func FollowersImportWorker(message *workers.Msg) {
 		opt.Count = 6
 	}
 
+	// TODO: Use the cursor string for pagination
 	if (cursorErr == nil) && (cursor > 0) {
 		log.Info("We have a Cursor")
 		opt.Cursor = uint64(cursor)
 	}
 
-	users, _, err := client.Relationships.FollowedBy("", opt)
+	users, _, err := client.Relationships.FollowedBy(igUID, opt)
 	if err != nil {
 		log.Error("FollowersImportWorkerError:", err)
-		workers.EnqueueIn("instagramfollowersimportworker", "FollowersImportWorker", 3600.0, []string{igUID, igToken, "", userNeoNodeIDRaw, string(6)})
+		// workers.EnqueueIn("instagramfollowersimportworker", "FollowersImportWorker", 3600.0, []string{igUID, igToken, "", userNeoNodeIDRaw, string(6)})
+		performFollowersAgain(igUID, igToken)
 		return
 	}
 
@@ -82,7 +84,7 @@ func FollowersImportWorker(message *workers.Msg) {
 	// nodeIdx = 0
 
 	for _, u := range users {
-		log.Info("ID: %v, Username: %v\n", u.ID, u.Username)
+		log.Info("FollowersImportWorker ID: %v, Username: %v\n", u.ID, u.Username)
 		// // Query if we already have imported user to Neo
 		// query := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' return c", u.ID)
 		// log.Info("FollowersImportWorker: THIS IS IG USER CYPHER QUERY: %v", query) // Confirm this Cypher Query
@@ -149,9 +151,8 @@ func FollowersImportWorker(message *workers.Msg) {
 	log.Info("RESPONSE FROM NEO$J FOR FOLLOWERS IMPORTER!!!!")
 	if err != nil {
 		log.Error("FollowersImportWorker: THERE WAS AN ERROR EXECUTING BATCH!!!!")
-		log.Error("FollowersImportWorker: WE SHOULD TRY AGAIN TO PROCESS THIS BATCH!!!!")
 		log.Error(err)
-		log.Error(res)
+		performFollowersAgain(igUID, igToken)
 	} else {
 		log.Info("FollowersImportWorker: Successfully imported Media to Neo4J")
 		for _, r := range res {
@@ -159,20 +160,23 @@ func FollowersImportWorker(message *workers.Msg) {
 			if r.Body != nil {
 				if r.Body.(map[string]interface{})["columns"] != nil {
 					log.Info("FollowersImportWorker: GOT A LABEL OR A RELETIONSHIP", r.Body)
+					// TODO: Check if Follower User's Media Import has Started, if not enqueue media+follows import
 				} else {
 					if r.Body.(map[string]interface{})["data"] != nil && r.Body.(map[string]interface{})["data"].(map[string]interface{}) != nil {
 						data, _ := r.Body.(map[string]interface{})["data"].(map[string]interface{})
-						log.Info("FollowersImportWorker: GOING TO GET THEIR MEDIA", data)
 						if data["InstagramID"] != nil {
 							dataInstagramID, _ := data["InstagramID"].(string)
 							metaData, _ := r.Body.(map[string]interface{})["metadata"].(map[string]interface{})
 							metaDataNeoIDRaw, _ := metaData["id"].(float64)
 							var metaDataNeoID = strconv.FormatFloat(metaDataNeoIDRaw, 'f', 0, 64)
-							log.Info("FollowersImportWorker: GOING TO GET THEIR MEDIA %v ", metaDataNeoID)
+							// log.Info("FollowersImportWorker: GOING TO GET THEIR MEDIA %v ", metaDataNeoID)
 							log.Info("FollowersImportWorker: GOING TO GET THEIR dataInstagramID %v ", dataInstagramID)
 							workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{dataInstagramID, igToken, "", metaDataNeoID})
 							log.Info("FollowersImportWorker: GOING TO GET THEIR FOLLOWERS %v ", metaDataNeoID)
-							workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{dataInstagramID, igToken, "", metaDataNeoID})
+							// workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{dataInstagramID, igToken, "", metaDataNeoID})
+
+							log.Info("FollowersImportWorker: DATA: %v", data)
+							workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{dataInstagramID, igToken, "", ""})
 						}
 					}
 				}
@@ -180,4 +184,10 @@ func FollowersImportWorker(message *workers.Msg) {
 		}
 
 	}
+}
+
+// Retry due to IG API Rate Limit or another Error
+func performFollowersAgain(igUID string, igToken string) {
+	log.Error("FollowersImportWorker: Retrying Due To Error")
+	workers.EnqueueIn("FollowersImportWorker", "FollowersImportWorker", 3600.0, []string{igUID, igToken, "", "", string(6)})
 }
