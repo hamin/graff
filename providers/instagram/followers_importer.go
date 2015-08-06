@@ -22,16 +22,8 @@ func FollowersImportWorker(message *workers.Msg) {
 	cursorString, cursorErr := message.Args().GetIndex(2).String()
 	cursor, _ := strconv.Atoi(cursorString)
 
-	// userNeoNodeIDRaw, userNeoNodeIDErr := message.Args().GetIndex(3).String()
-	// userNeoNodeID, _ := strconv.Atoi(userNeoNodeIDRaw)
-
 	followersLimitString, followersLimitError := message.Args().GetIndex(4).String()
 	followersLimit, _ := strconv.Atoi(followersLimitString)
-
-	// if userNeoNodeIDRaw == "" {
-	// 	log.Error("FollowersImportWorker: Shit is broken MISSING userNeoNodeIDRaw!!! ", userNeoNodeIDRaw)
-	// 	return
-	// }
 
 	if igUIDErr != nil {
 		log.Error("FollowersImportWorker: Missing IG User ID")
@@ -42,11 +34,6 @@ func FollowersImportWorker(message *workers.Msg) {
 		log.Error("FollowersImportWorker: Mssing IG Token")
 		return
 	}
-
-	// if userNeoNodeIDErr != nil {
-	// 	log.Error("FollowersImportWorker: Missing IG User Neo Node ID")
-	// 	return
-	// }
 
 	client := instagram.NewClient(nil)
 	client.AccessToken = igToken
@@ -85,14 +72,8 @@ func FollowersImportWorker(message *workers.Msg) {
 
 	for _, u := range users {
 		log.Info("FollowersImportWorker ID: %v, Username: %v\n", u.ID, u.Username)
-		// // Query if we already have imported user to Neo
-		// query := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' return c", u.ID)
-		// log.Info("FollowersImportWorker: THIS IS IG USER CYPHER QUERY: %v", query) // Confirm this Cypher Query
-		// neoExistingUser, neoExistingUserErr := neohelpers.FindIDByCypher(neo4jConnection, query)
-
 		// Query if we already have imported user to Neo
 		query := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' return id(c), c.MediaDataImportStarted, c.MediaDataImportFinished", u.ID)
-		//log.Info("FollowersImportWorker: THIS IS IG USER CYPHER QUERY: %v ", query) // Confirm this Cypher Query
 
 		response, _ := neohelpers.FindUserByCypher(neo4jConnection, query)
 		log.Info("FollowersImportWorker: exstingIGUserNeoNodeID: ", response)
@@ -101,15 +82,11 @@ func FollowersImportWorker(message *workers.Msg) {
 			userResponse, ok := response[0].([]interface{})
 			if userResponse[0] != nil && ok {
 				log.Info("FollowersImportWorker: userResponse", userResponse)
-				// currentUserNodeIdRaw, _ := userResponse[0].(float64)
-				// log.Info("FollowersImportWorker: currentUserNodeIdRaw: ", currentUserNodeIdRaw)
-				// log.Info("FollowersImportWorker: userNeoNodeID: ", userNeoNodeID)
 				unique := &neo4j.Unique{}
 				unique.IndexName = "igpeople"
 				unique.Key = "InstagramID"
 				unique.Value = u.ID
 				batch.Create(neohelpers.CreateCypherRelationshipOperationTo(igUID, unique, "instagram_follows"))
-				//neohelpers.AddRelationshipOperation(&batchOperations, int(currentUserNodeIdRaw), int(userNeoNodeID), true, true, "instagram_follows")
 			}
 		} else {
 			// Create Neo User
@@ -133,19 +110,8 @@ func FollowersImportWorker(message *workers.Msg) {
 			batch.CreateUnique(node, unique)
 			batch.Create(neohelpers.CreateCypherLabelOperation(unique, ":InstagramUser"))
 			batch.Create(neohelpers.CreateCypherRelationshipOperationTo(igUID, unique, "instagram_follows"))
-
-			// node.Data = structs.Map(igNeoUser)
-
-			// batch.Create(node)
-			// neohelpers.AddLabelOperation(&batchOperations, nodeIdx, "InstagramUser")
-			// neohelpers.AddRelationshipOperation(&batchOperations, nodeIdx, int(userNeoNodeID), false, true, "instagram_follows")
-			// nodeIdx++
 		}
 	}
-
-	// for _, batchOp := range batchOperations {
-	// 	batch.Create(batchOp)
-	// }
 
 	res, err := batch.Execute()
 	log.Info("RESPONSE FROM NEO$J FOR FOLLOWERS IMPORTER!!!!")
@@ -156,7 +122,6 @@ func FollowersImportWorker(message *workers.Msg) {
 	} else {
 		log.Info("FollowersImportWorker: Successfully imported Media to Neo4J")
 		for _, r := range res {
-			// log.Info("FollowersImportWorker: THIS IS THE BODY", r.Body)
 			if r.Body != nil {
 				if r.Body.(map[string]interface{})["columns"] != nil {
 					log.Info("FollowersImportWorker: GOT A LABEL OR A RELETIONSHIP", r.Body)
@@ -169,11 +134,9 @@ func FollowersImportWorker(message *workers.Msg) {
 							metaData, _ := r.Body.(map[string]interface{})["metadata"].(map[string]interface{})
 							metaDataNeoIDRaw, _ := metaData["id"].(float64)
 							var metaDataNeoID = strconv.FormatFloat(metaDataNeoIDRaw, 'f', 0, 64)
-							// log.Info("FollowersImportWorker: GOING TO GET THEIR MEDIA %v ", metaDataNeoID)
 							log.Info("FollowersImportWorker: GOING TO GET THEIR dataInstagramID %v ", dataInstagramID)
 							workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{dataInstagramID, igToken, "", metaDataNeoID})
 							log.Info("FollowersImportWorker: GOING TO GET THEIR FOLLOWERS %v ", metaDataNeoID)
-							// workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{dataInstagramID, igToken, "", metaDataNeoID})
 
 							log.Info("FollowersImportWorker: DATA: %v", data)
 							workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{dataInstagramID, igToken, "", ""})

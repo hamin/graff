@@ -110,12 +110,6 @@ func UserImportWorker(message *workers.Msg) {
 
 	batch.CreateUnique(node, unique)
 	batch.Create(neohelpers.CreateCypherLabelOperation(unique, ":InstagramUser"))
-	//batch.Create(node)
-	// manuelLabel := &neo4j.ManuelBatchRequest{}
-	// manuelLabel.To = "{0}/labels"
-	// manuelLabel.StringBody = "InstagramUser"
-	// batch.Create(manuelLabel)
-	// var nodeIDInt int
 	res, err := batch.Execute()
 	if err != nil {
 		log.Error("UserImportWorker: Failed to create Neo4J User Node: %v", err)
