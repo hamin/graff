@@ -119,7 +119,7 @@ func CreateCypherLabelOperation(unique *neo4j.Unique, label string) *neo4j.Cyphe
 }
 
 func CreateCypherRelationshipOperationFrom(fromNodeIndexValue string, unique *neo4j.Unique, relName string) *neo4j.Cypher {
-	query := fmt.Sprintf("START me = node:%v(%v='%v'), you = node:%v(%v='%v') CREATE me-[new_rel:%v]-> you RETURN new_rel",
+	query := fmt.Sprintf("START me = node:%v(%v='%v'), you = node:%v(%v='%v') CREATE UNIQUE me-[new_rel:%v]-> you RETURN new_rel",
 		unique.IndexName, unique.Key, fromNodeIndexValue, unique.IndexName, unique.Key, unique.Value, relName)
 	log.Info("CreateCypherRelationshipOperationFrom error: %v", query)
 	cypher := &neo4j.Cypher{
@@ -132,7 +132,7 @@ func CreateCypherRelationshipOperationFrom(fromNodeIndexValue string, unique *ne
 }
 
 func CreateCypherRelationshipOperationTo(toNodeIndexValue string, unique *neo4j.Unique, relName string) *neo4j.Cypher {
-	query := fmt.Sprintf("START you = node:%v(%v='%v'), me = node:%v(%v='%v') CREATE you-[new_rel:%v]-> me RETURN new_rel",
+	query := fmt.Sprintf("START you = node:%v(%v='%v'), me = node:%v(%v='%v') CREATE UNIQUE you-[new_rel:%v]-> me RETURN new_rel",
 		unique.IndexName, unique.Key, unique.Value, unique.IndexName, unique.Key, toNodeIndexValue, relName)
 	log.Info("CreateCypherRelationshipOperationTo error: %v", query)
 	cypher := &neo4j.Cypher{
