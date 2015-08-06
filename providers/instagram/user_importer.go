@@ -102,12 +102,19 @@ func UserImportWorker(message *workers.Msg) {
 	igNeoUser.FollowedByCount = igUser.Counts.FollowedBy
 	igNeoUser.MediaDataImportStarted = true
 	node.Data = structs.Map(igNeoUser)
-	batch.Create(node)
 
-	manuelLabel := &neo4j.ManuelBatchRequest{}
-	manuelLabel.To = "{0}/labels"
-	manuelLabel.StringBody = "InstagramUser"
-	batch.Create(manuelLabel)
+	unique := &neo4j.Unique{}
+	unique.IndexName = "igpeople"
+	unique.Key = "InstagramID"
+	unique.Value = igUser.ID
+
+	batch.CreateUnique(node, unique)
+	batch.Create(neohelpers.CreateCypherLabelOperation(unique, ":InstagramUser"))
+	//batch.Create(node)
+	// manuelLabel := &neo4j.ManuelBatchRequest{}
+	// manuelLabel.To = "{0}/labels"
+	// manuelLabel.StringBody = "InstagramUser"
+	// batch.Create(manuelLabel)
 	// var nodeIDInt int
 	res, err := batch.Execute()
 	if err != nil {
@@ -129,9 +136,9 @@ func UserImportWorker(message *workers.Msg) {
 	}
 
 	//Enqueue Media and Follows Importer for new Neo IG User
-	workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{igUID, igToken, "", nodeIDString})
+	//workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{igUID, igToken, "", nodeIDString})
 	//Enqueue Follows Importer for new Neo IG User
-	workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{igUID, igToken, "", nodeIDString})
+	//workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{igUID, igToken, "", nodeIDString})
 
 	//Enqueue Recent Followers
 	workers.Enqueue("instagramfollowersimportworker", "FollowersImportWorker", []string{igUID, igToken, "", nodeIDString, string(6)})

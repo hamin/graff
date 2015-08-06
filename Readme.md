@@ -21,6 +21,7 @@ We have to create the following indexs (these are nodes that we directly query w
 
 ```
 CREATE INDEX ON :InstagramUser(InstagramID)
+CREATE INDEX ON :InstagramLocation(Username)
 ```
 
 ```

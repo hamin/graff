@@ -106,6 +106,44 @@ func FindIDByCypher(neo4jConnection *neo4j.Neo4j, query string) (int, error) {
 	return int(thirdSlice), nil
 }
 
+func CreateCypherLabelOperation(unique *neo4j.Unique, label string) *neo4j.Cypher {
+	query := fmt.Sprintf("START n = node:%v(%v='%v') set n %v return n", unique.IndexName, unique.Key, unique.Value, label)
+	log.Info("CreateCypherLabelOperation error: %v", query)
+	cypher := &neo4j.Cypher{
+		Query: map[string]string{
+			"query": query,
+		},
+		Payload: map[string]interface{}{},
+	}
+	return cypher
+}
+
+func CreateCypherRelationshipOperationFrom(fromNodeIndexValue string, unique *neo4j.Unique, relName string) *neo4j.Cypher {
+	query := fmt.Sprintf("START me = node:%v(%v='%v'), you = node:%v(%v='%v') CREATE me-[new_rel:%v]-> you RETURN new_rel",
+		unique.IndexName, unique.Key, fromNodeIndexValue, unique.IndexName, unique.Key, unique.Value, relName)
+	log.Info("CreateCypherRelationshipOperationFrom error: %v", query)
+	cypher := &neo4j.Cypher{
+		Query: map[string]string{
+			"query": query,
+		},
+		Payload: map[string]interface{}{},
+	}
+	return cypher
+}
+
+func CreateCypherRelationshipOperationTo(toNodeIndexValue string, unique *neo4j.Unique, relName string) *neo4j.Cypher {
+	query := fmt.Sprintf("START you = node:%v(%v='%v'), me = node:%v(%v='%v') CREATE you-[new_rel:%v]-> me RETURN new_rel",
+		unique.IndexName, unique.Key, unique.Value, unique.IndexName, unique.Key, toNodeIndexValue, relName)
+	log.Info("CreateCypherRelationshipOperationTo error: %v", query)
+	cypher := &neo4j.Cypher{
+		Query: map[string]string{
+			"query": query,
+		},
+		Payload: map[string]interface{}{},
+	}
+	return cypher
+}
+
 // AddLabelOperation - Neo4J Label Operation
 func AddLabelOperation(batchOperations *[]*neo4j.ManuelBatchRequest, nodeIdx int, label string) {
 	manuelLabel := &neo4j.ManuelBatchRequest{}

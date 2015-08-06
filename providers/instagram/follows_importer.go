@@ -24,7 +24,7 @@ func FollowsImportWorker(message *workers.Msg) {
 	cursor, _ := strconv.Atoi(cursorString)
 
 	userNeoNodeIDRaw, userNeoNodeIDErr := message.Args().GetIndex(3).String()
-	userNeoNodeID, _ := strconv.Atoi(userNeoNodeIDRaw)
+	// userNeoNodeID, _ := strconv.Atoi(userNeoNodeIDRaw)
 
 	if userNeoNodeIDRaw == "" {
 		log.Error("FollowsImportWorker: Shit is broken!!! ", userNeoNodeIDRaw)
@@ -71,9 +71,9 @@ func FollowsImportWorker(message *workers.Msg) {
 	neo4jConnection := neo4j.Connect(neoHost)
 	batch := neo4jConnection.NewBatch()
 
-	batchOperations := []*neo4j.ManuelBatchRequest{}
-	var nodeIdx int
-	nodeIdx = 0
+	// batchOperations := []*neo4j.ManuelBatchRequest{}
+	// var nodeIdx int
+	// nodeIdx = 0
 	//now we need to iterate trhough users and check if the user exists on neo4j, if user exists we just create
 	//a relationship with the main node
 	for _, u := range users {
@@ -88,11 +88,17 @@ func FollowsImportWorker(message *workers.Msg) {
 		if len(response) > 0 {
 			userResponse, ok := response[0].([]interface{})
 			if userResponse[0] != nil && ok {
-				currentUserNodeIdRaw, _ := userResponse[0].(float64)
-				log.Info("FollowsImportWorker: currentUserNodeIdRaw: ", currentUserNodeIdRaw)
-				log.Info("FollowsImportWorker: userNeoNodeID: ", userNeoNodeID)
+				log.Info("FollowsImportWorker: userResponse", userResponse)
+				// currentUserNodeIdRaw, _ := userResponse[0].(float64)
+				// log.Info("FollowsImportWorker: currentUserNodeIdRaw: ", currentUserNodeIdRaw)
+				// log.Info("FollowsImportWorker: userNeoNodeID: ", userNeoNodeID)
 				//log.Info("FollowsImportWorker: currentUserNodeId", currentUserNodeId) // Confirm this Cypher Query
-				neohelpers.AddRelationshipOperation(&batchOperations, int(userNeoNodeID), int(currentUserNodeIdRaw), true, true, "instagram_follows")
+				unique := &neo4j.Unique{}
+				unique.IndexName = "igpeople"
+				unique.Key = "InstagramID"
+				unique.Value = u.ID
+				batch.Create(neohelpers.CreateCypherRelationshipOperationFrom(igUID, unique, "instagram_follows"))
+				//neohelpers.AddRelationshipOperation(&batchOperations, int(userNeoNodeID), int(currentUserNodeIdRaw), true, true, "instagram_follows")
 			}
 		} else {
 			log.Info("FollowsImportWorker: We should create this user on neo!")
@@ -105,23 +111,31 @@ func FollowsImportWorker(message *workers.Msg) {
 			igNeoUser.MediaDataImportStarted = false
 
 			node.Data = structs.Map(igNeoUser)
-			batch.Create(node)
 
-			neohelpers.AddLabelOperation(&batchOperations, nodeIdx, "InstagramUser")
-			neohelpers.AddRelationshipOperation(&batchOperations, int(userNeoNodeID), nodeIdx, true, false, "instagram_follows")
-			nodeIdx++
+			unique := &neo4j.Unique{}
+			unique.IndexName = "igpeople"
+			unique.Key = "InstagramID"
+			unique.Value = u.ID
+
+			batch.CreateUnique(node, unique)
+			batch.Create(neohelpers.CreateCypherLabelOperation(unique, ":InstagramUser"))
+			batch.Create(neohelpers.CreateCypherRelationshipOperationFrom(igUID, unique, "instagram_follows"))
+			//neohelpers.AddLabelOperation(&batchOperations, nodeIdx, "InstagramUser")
+			//neohelpers.AddRelationshipOperation(&batchOperations, int(userNeoNodeID), nodeIdx, true, false, "instagram_follows")
+			//nodeIdx++
 		}
 	}
 
-	for _, batchOp := range batchOperations {
-		batch.Create(batchOp)
-	}
+	// for _, batchOp := range batchOperations {
+	// 	batch.Create(batchOp)
+	// }
 
 	res, err := batch.Execute()
 	if err != nil {
 		log.Error("FollowsImportWorker: THERE WAS AN ERROR EXECUTING BATCH!!!!")
 		log.Error(err)
 		log.Error(res)
+		log.Error("FollowsImportWorker: IT SHOULD ENQUE THE SAME JOB AGAIN!!!!")
 	} else {
 		log.Info("FollowsImportWorker: Successfully imported Media to Neo4J")
 		if next.Cursor != "" {
