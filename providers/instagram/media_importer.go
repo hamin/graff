@@ -1,7 +1,6 @@
 package instagram
 
 import (
-	// "errors"
 	"../../neo_helpers"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
@@ -13,13 +12,6 @@ import (
 	"strconv"
 )
 
-type instagramLocationImport struct {
-	LocationID     int
-	ExistsInNeo4J  bool
-	NeoVenueNodeID int32
-	NodeIdx        int
-}
-
 // MediaImportWorker Imports Instagram media to Neo4J
 func MediaImportWorker(message *workers.Msg) {
 	igUID, igUIDErr := message.Args().GetIndex(0).String()
@@ -30,26 +22,12 @@ func MediaImportWorker(message *workers.Msg) {
 
 	maxID, maxIDErr := message.Args().GetIndex(2).String()
 
-	userNeoNodeIDRaw, userNeoNodeIDErr := message.Args().GetIndex(3).String()
-
-	if userNeoNodeIDRaw == "" {
-		log.Error("MediaImportWorker: Shit is broken userNeoNodeIDRaw ", userNeoNodeIDRaw)
-		return
-	}
-
-	userNeoNodeID, _ := strconv.Atoi(userNeoNodeIDRaw)
-
 	if igUIDErr != nil {
 		log.Error("MediaImportWorker: Missing IG User ID")
 	}
 
 	if igTokenErr != nil {
 		log.Error("MediaImportWorker: Mssing IG Token")
-		return
-	}
-
-	if userNeoNodeIDErr != nil {
-		log.Error("MediaImportWorker: Missing IG User Neo Node ID")
 		return
 	}
 
@@ -70,29 +48,16 @@ func MediaImportWorker(message *workers.Msg) {
 	}
 
 	if err != nil {
-		log.Error("Error: %v\n", err)
-		if (err == nil) && (maxID != "") {
-			log.Info("MediaImportWorker: Instagram API Failed, Enqueuing Again with MaxID: ", maxID)
-			workers.EnqueueIn("instagramediaimportworker", "MediaImportWorker", 3600.0, []string{igUID, igToken, maxID, userNeoNodeIDRaw})
-		} else {
-			log.Info("MediaImportWorker: Instagram API Failed, Enqueuing Again")
-			workers.EnqueueIn("instagramediaimportworker", "MediaImportWorker", 3600.0, []string{igUID, igToken, "", userNeoNodeIDRaw})
-		}
+		log.Error("InstagramMediaImportWorker Error: %v\n", err)
+		performMediaAgain(igUID, igToken, maxID)
 		return
 	}
-
-	var nodeIdx int
-	nodeIdx = 0
 
 	neoHost := os.Getenv("NEO4JURI")
 	neo4jConnection := neo4j.Connect(neoHost)
 	batch := neo4jConnection.NewBatch()
 
-	batchOperations := []*neo4j.ManuelBatchRequest{}
-	importedIGLocations := make(map[int]instagramLocationImport)
-
 	for _, m := range media {
-		var mediaItemNodeIdx = nodeIdx
 		node := &neo4j.Node{}
 		igMediaItem := MediaItem{}
 		igMediaItem.InstagramID = m.ID
@@ -126,75 +91,63 @@ func MediaImportWorker(message *workers.Msg) {
 		}
 		igMediaItem.HasVenue = hasVenue
 
-		// node.Data = data
 		node.Data = structs.Map(igMediaItem)
-		batch.Create(node)
-		//ADD LABEL FOR MEDIA NODE WITH {INDEX} = nodeIdx
-		neohelpers.AddLabelOperation(&batchOperations, nodeIdx, "InstagramMediaItem")
 
-		// TODO NEED TO ADD RELATIONSHIP TO IG USER NEO NODE
-		neohelpers.AddRelationshipOperation(&batchOperations, int(userNeoNodeID), mediaItemNodeIdx, true, false, "instagram_media_item")
+		mediaItemUnique := &neo4j.Unique{}
+		mediaItemUnique.IndexName = "igmedia"
+		mediaItemUnique.Key = "InstagramID"
+		mediaItemUnique.Value = igMediaItem.InstagramID
+
+		batch.CreateUnique(node, mediaItemUnique)
+		batch.Create(neohelpers.CreateCypherLabelOperation(mediaItemUnique, ":InstagramMediaItem"))
+		// batch.Create(neohelpers.CreateCypherRelationshipOperationFrom(igUID, unique, "instagram_media_item"))
+
+		// func CreateCypherRelationshipOperationFromDifferentIndex(fromUnique *neo4j.Unique, toUnique *neo4j.Unique, relName string) *neo4j.Cypher {
+
+		userUnique := &neo4j.Unique{}
+		userUnique.IndexName = "igpeople"
+		userUnique.Key = "InstagramID"
+		userUnique.Value = igUID
+		batch.Create(neohelpers.CreateCypherRelationshipOperationFromDifferentIndex(userUnique, mediaItemUnique, "instagram_media_item"))
 
 		// Handle has_venue is true
 		if hasVenue {
-			// First check to see if we've already imported this Venue in this range loop
-			// this migth or might not exist in a batch operation
-			existingVenueImport, ok := importedIGLocations[m.Location.ID]
-			if ok {
-				// We've already done a location import for this location in this worker
-				if existingVenueImport.ExistsInNeo4J {
-					neohelpers.AddRelationshipOperation(&batchOperations, mediaItemNodeIdx, int(existingVenueImport.NeoVenueNodeID), false, true, "instagram_location")
-				} else {
-					neohelpers.AddRelationshipOperation(&batchOperations, mediaItemNodeIdx, existingVenueImport.NodeIdx, false, false, "instagram_location")
-				}
+			// Query Neo4J w/ VENUE IG ID
+			query := fmt.Sprintf("match (c:InstagramLocation) where c.InstagramID = '%v' return id(c)", m.Location.ID)
+			_, err := neohelpers.FindIDByCypher(neo4jConnection, query)
+
+			mediaLocationIDStr := strconv.Itoa(m.Location.ID)
+
+			if err != nil {
+				venueNode := &neo4j.Node{}
+				igMediaLocation := MediaLocation{}
+				igMediaLocation.Name = m.Location.Name
+				igMediaLocation.Latitude = m.Location.Latitude
+				igMediaLocation.Longitude = m.Location.Longitude
+				igMediaLocation.InstagramID = mediaLocationIDStr
+
+				venueNode.Data = structs.Map(igMediaLocation)
+
+				mediaLocationUnique := &neo4j.Unique{}
+				mediaLocationUnique.IndexName = "igmedialocation"
+				mediaLocationUnique.Key = "InstagramID"
+				mediaLocationUnique.Value = igMediaLocation.InstagramID
+
+				batch.CreateUnique(node, mediaLocationUnique)
+				batch.Create(neohelpers.CreateCypherLabelOperation(mediaLocationUnique, ":InstagramLocation"))
+				// batch.Create(neohelpers.CreateCypherRelationshipOperationFrom(igUID, unique, "instagram_location"))
+
+				batch.Create(neohelpers.CreateCypherRelationshipOperationFromDifferentIndex(mediaItemUnique, mediaLocationUnique, "instagram_location"))
+
 			} else {
-
-				newVenueImport := instagramLocationImport{LocationID: m.Location.ID}
-
-				// Query Neo4J w/ VENUE IG ID
-				query := fmt.Sprintf("match (c:InstagramLocation) where c.InstagramID = '%v' return id(c)", m.Location.ID)
-				// log.Info("MediaImportWorker: THIS IS THE IGVENUE INSTAGRAM ID: %v", m.Location.ID)
-				// log.Info("MediaImportWorker: THIS IS CYPHER QUERY: %v", query)
-				exstingLocationNeoNodeID, err := neohelpers.FindIDByCypher(neo4jConnection, query)
-				// log.Info("MediaImportWorker: THIS IS THE NODEID FOR THE VENUE: %v", exstingLocationNeoNodeID)
-
-				if err != nil {
-					venueNode := &neo4j.Node{}
-					igMediaLocation := MediaLocation{}
-					igMediaLocation.Name = m.Location.Name
-					igMediaLocation.Latitude = m.Location.Latitude
-					igMediaLocation.Longitude = m.Location.Longitude
-					igMediaLocation.InstagramID = strconv.Itoa(m.Location.ID)
-
-					venueNode.Data = structs.Map(igMediaLocation)
-					batch.Create(venueNode)
-					nodeIdx++
-
-					newVenueImport.ExistsInNeo4J = false
-					newVenueImport.NodeIdx = nodeIdx
-					importedIGLocations[newVenueImport.LocationID] = newVenueImport
-
-					// Add Label for NEO Venue
-					neohelpers.AddLabelOperation(&batchOperations, nodeIdx, "InstagramLocation")
-					// Add relationship between NEO VENUE and NEO MEDIA
-					neohelpers.AddRelationshipOperation(&batchOperations, mediaItemNodeIdx, nodeIdx, false, false, "instagram_location")
-				} else {
-					newVenueImport.ExistsInNeo4J = true
-					newVenueImport.NeoVenueNodeID = int32(exstingLocationNeoNodeID)
-					importedIGLocations[newVenueImport.LocationID] = newVenueImport
-
-					// Add relationship between NEO VENUE and NEO MEDIA
-					neohelpers.AddRelationshipOperation(&batchOperations, mediaItemNodeIdx, exstingLocationNeoNodeID, false, true, "instagram_location")
-				}
+				// Add relationship between NEO VENUE and NEO MEDIA
+				unique := &neo4j.Unique{}
+				unique.IndexName = "igmedialocation"
+				unique.Key = "InstagramID"
+				unique.Value = mediaLocationIDStr
+				batch.Create(neohelpers.CreateCypherRelationshipOperationFrom(igUID, unique, "instagram_location"))
 			}
-
 		}
-
-		nodeIdx++
-	}
-
-	for _, batchOp := range batchOperations {
-		batch.Create(batchOp)
 	}
 
 	res, err := batch.Execute()
@@ -202,16 +155,16 @@ func MediaImportWorker(message *workers.Msg) {
 		log.Error("MediaImportWorker: THERE WAS AN ERROR EXECUTING BATCH!!!!")
 		log.Error(err)
 		log.Error(res)
+		performMediaAgain(igUID, igToken, maxID)
 	} else {
 		log.Info("MediaImportWorker: Successfully imported Media to Neo4J")
 
 		if next.NextMaxID != "" {
-			// log.Info("MediaImportWorker *** This is our next.NextMaxID ", next.NextMaxID)
-			workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{igUID, igToken, next.NextMaxID, userNeoNodeIDRaw})
+			workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{igUID, igToken, next.NextMaxID, ""})
 		} else {
 			log.Info("MediaImportWorker: Done Importing Media for IG User!")
 			//We should mark this user data as finished importing
-			updateQuery := fmt.Sprintf("match (c:InstagramUser) where id(c)= %v SET c.MediaDataImportFinished=true", userNeoNodeIDRaw)
+			updateQuery := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = %v SET c.MediaDataImportFinished=true", igUID)
 			response, updateUserError := neohelpers.UpdateNodeWithCypher(neo4jConnection, updateQuery)
 			if updateUserError == nil {
 				log.Info("MediaImportWorker: UPDATING NODE WITH CYPHER successfully MediaDataImportFinished=true", response)
@@ -221,4 +174,16 @@ func MediaImportWorker(message *workers.Msg) {
 		}
 	}
 
+}
+
+// Retry due to IG API Rate Limit or another Error
+func performMediaAgain(igUID string, igToken string, cursorString string) {
+	log.Error("InstagramMediaImportWorker: Retrying Due To Error")
+	if cursorString != "" {
+		log.Info("InstagramMediaImportWorker: Instagram API Failed, Enqueuing Again with MaxID: ", cursorString)
+		workers.EnqueueIn("instagramediaimportworker", "MediaImportWorker", 3600.0, []string{igUID, igToken, cursorString, ""})
+	} else {
+		log.Info("InstagramMediaImportWorker: Instagram API Failed, Enqueuing Again")
+		workers.EnqueueIn("instagramediaimportworker", "MediaImportWorker", 3600.0, []string{igUID, igToken, "", ""})
+	}
 }
