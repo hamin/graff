@@ -8,6 +8,7 @@ import (
 	"github.com/fatih/structs"
 	"github.com/jrallison/go-workers"
 	"github.com/maggit/go-instagram/instagram"
+	"github.com/mitchellh/mapstructure"
 	"os"
 	"strconv"
 )
@@ -114,7 +115,6 @@ func FollowersImportWorker(message *workers.Msg) {
 	}
 
 	res, err := batch.Execute()
-	log.Info("RESPONSE FROM NEO$J FOR FOLLOWERS IMPORTER!!!!")
 	if err != nil {
 		log.Error("FollowersImportWorker: THERE WAS AN ERROR EXECUTING BATCH!!!!")
 		log.Error(err)
@@ -124,8 +124,32 @@ func FollowersImportWorker(message *workers.Msg) {
 		for _, r := range res {
 			if r.Body != nil {
 				if r.Body.(map[string]interface{})["columns"] != nil {
-					log.Info("FollowersImportWorker: GOT A LABEL OR A RELETIONSHIP", r.Body)
-					// TODO: Check if Follower User's Media Import has Started, if not enqueue media+follows import
+
+					if len(r.Body.(map[string]interface{})["columns"].([]interface{})) > 1 {
+						nodeResponseSlice, ok := r.Body.(map[string]interface{})["data"].([]interface{})
+
+						if !ok {
+							return
+						}
+
+						nodeResponseElement := nodeResponseSlice[0].([]interface{})[1]
+
+						nodeReponse := &neo4j.NodeResponse{}
+						nodeReponseErr := mapstructure.Decode(nodeResponseElement, &nodeReponse)
+						if nodeReponseErr != nil {
+							log.Error("FollowersImportWorker: nodeReponseErr %v", nodeReponseErr)
+							return
+						}
+
+						if nodeReponse.Data["MediaDataImportStarted"] != true {
+							// Let's make sure to Enquque Media+Follows Importers
+							// Import Follows
+							workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{nodeReponse.Data["InstagramID"].(string), igToken, "", ""})
+							log.Error("FollowersImportWorker: JUST IMPORTED FOLLOWS FOR A RELATIONSHIP THAT HASNT BEEN IMPORETED YET")
+							// TODO: Import Media
+						}
+					}
+
 				} else {
 					if r.Body.(map[string]interface{})["data"] != nil && r.Body.(map[string]interface{})["data"].(map[string]interface{}) != nil {
 						data, _ := r.Body.(map[string]interface{})["data"].(map[string]interface{})

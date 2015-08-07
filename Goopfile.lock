@@ -10,4 +10,5 @@ github.com/garyburd/redigo #a47585eaae68b1d14b02940d2af1b9194f3caa9c
 github.com/getsentry/raven-go #74c334d7b8aaa4fd1b4fc6aa428c36fed1699e28
 github.com/jrallison/go-workers #a5368356aa61a226ca34f130ea9c312eda3d8d25
 github.com/maggit/go-instagram/instagram #1b7258747558e200ae3820ea6819e4c081e962ba
+github.com/mitchellh/mapstructure #281073eb9eb092240d33ef253c404f1cca550309
 github.com/tobi/airbrake-go #5b5e269e1bc398d43f67e43dafff3414a59cd5a2

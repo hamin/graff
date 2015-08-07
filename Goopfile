@@ -4,3 +4,4 @@ github.com/maggit/go-instagram/instagram #1b7258747558e200ae3820ea6819e4c081e962
 github.com/cihangir/neo4j
 github.com/Sirupsen/logrus
 github.com/fatih/structs
+github.com/mitchellh/mapstructure
