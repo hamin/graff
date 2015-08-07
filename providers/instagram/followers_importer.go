@@ -143,10 +143,10 @@ func FollowersImportWorker(message *workers.Msg) {
 
 						if nodeReponse.Data["MediaDataImportStarted"] != true {
 							// Let's make sure to Enquque Media+Follows Importers
-							// Import Follows
-							workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{nodeReponse.Data["InstagramID"].(string), igToken, "", ""})
+							igUserIDString := nodeReponse.Data["InstagramID"].(string)
+							workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{igUserIDString, igToken, "", ""})
 							log.Error("FollowersImportWorker: JUST IMPORTED FOLLOWS FOR A RELATIONSHIP THAT HASNT BEEN IMPORETED YET")
-							// TODO: Import Media
+							workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{igUserIDString, igToken, "", ""})
 						}
 					}
 

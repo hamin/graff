@@ -48,7 +48,7 @@ func MediaImportWorker(message *workers.Msg) {
 	}
 
 	if err != nil {
-		log.Error("InstagramMediaImportWorker Error: %v\n", err)
+		log.Error("InstagramMediaImportWorker: Instagram API Failed : %v", err)
 		performMediaAgain(igUID, igToken, maxID)
 		return
 	}
@@ -135,8 +135,6 @@ func MediaImportWorker(message *workers.Msg) {
 
 				batch.CreateUnique(node, mediaLocationUnique)
 				batch.Create(neohelpers.CreateCypherLabelOperation(mediaLocationUnique, ":InstagramLocation"))
-				// batch.Create(neohelpers.CreateCypherRelationshipOperationFrom(igUID, unique, "instagram_location"))
-
 				batch.Create(neohelpers.CreateCypherRelationshipOperationFromDifferentIndex(mediaItemUnique, mediaLocationUnique, "instagram_location"))
 
 			} else {
@@ -155,6 +153,7 @@ func MediaImportWorker(message *workers.Msg) {
 		log.Error("MediaImportWorker: THERE WAS AN ERROR EXECUTING BATCH!!!!")
 		log.Error(err)
 		log.Error(res)
+		log.Error("MediaImportWorker: FAILED WITH ARGS| igUID: %v  igToken: %v maxID: %v ", igUID, igToken, maxID)
 		performMediaAgain(igUID, igToken, maxID)
 	} else {
 		log.Info("MediaImportWorker: Successfully imported Media to Neo4J")
@@ -180,10 +179,8 @@ func MediaImportWorker(message *workers.Msg) {
 func performMediaAgain(igUID string, igToken string, cursorString string) {
 	log.Error("InstagramMediaImportWorker: Retrying Due To Error")
 	if cursorString != "" {
-		log.Info("InstagramMediaImportWorker: Instagram API Failed, Enqueuing Again with MaxID: ", cursorString)
 		workers.EnqueueIn("instagramediaimportworker", "MediaImportWorker", 3600.0, []string{igUID, igToken, cursorString, ""})
 	} else {
-		log.Info("InstagramMediaImportWorker: Instagram API Failed, Enqueuing Again")
 		workers.EnqueueIn("instagramediaimportworker", "MediaImportWorker", 3600.0, []string{igUID, igToken, "", ""})
 	}
 }
