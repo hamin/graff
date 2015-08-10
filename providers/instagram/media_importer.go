@@ -163,7 +163,7 @@ func MediaImportWorker(message *workers.Msg) {
 		} else {
 			log.Info("MediaImportWorker: Done Importing Media for IG User!")
 			//We should mark this user data as finished importing
-			updateQuery := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = %v SET c.MediaDataImportFinished=true", igUID)
+			updateQuery := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' SET c.MediaDataImportFinished=true RETURN c", igUID)
 			response, updateUserError := neohelpers.UpdateNodeWithCypher(neo4jConnection, updateQuery)
 			if updateUserError == nil {
 				log.Info("MediaImportWorker: UPDATING NODE WITH CYPHER successfully MediaDataImportFinished=true", response)
