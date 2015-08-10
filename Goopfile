@@ -5,3 +5,4 @@ github.com/cihangir/neo4j
 github.com/Sirupsen/logrus
 github.com/fatih/structs
 github.com/mitchellh/mapstructure
+github.com/googollee/go-socket.io
