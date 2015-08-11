@@ -1,6 +1,7 @@
 package instagram
 
 import (
+	"../../mqtt_helpers"
 	"../../neo_helpers"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
@@ -100,9 +101,6 @@ func MediaImportWorker(message *workers.Msg) {
 
 		batch.CreateUnique(node, mediaItemUnique)
 		batch.Create(neohelpers.CreateCypherLabelOperation(mediaItemUnique, ":InstagramMediaItem"))
-		// batch.Create(neohelpers.CreateCypherRelationshipOperationFrom(igUID, unique, "instagram_media_item"))
-
-		// func CreateCypherRelationshipOperationFromDifferentIndex(fromUnique *neo4j.Unique, toUnique *neo4j.Unique, relName string) *neo4j.Cypher {
 
 		userUnique := &neo4j.Unique{}
 		userUnique.IndexName = "igpeople"
@@ -163,10 +161,18 @@ func MediaImportWorker(message *workers.Msg) {
 		} else {
 			log.Info("MediaImportWorker: Done Importing Media for IG User!")
 			//We should mark this user data as finished importing
-			updateQuery := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' SET c.MediaDataImportFinished=true RETURN c", igUID)
+
+			updateQuery := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' SET c.MediaDataImportFinished=true RETURN c.Username", igUID)
 			response, updateUserError := neohelpers.UpdateNodeWithCypher(neo4jConnection, updateQuery)
 			if updateUserError == nil {
+				updatedUserFirstSlice, ok := response[0].([]interface{})
+				updatedUserUsername, ok := updatedUserFirstSlice[0].(string)
 				log.Info("MediaImportWorker: UPDATING NODE WITH CYPHER successfully MediaDataImportFinished=true", response)
+				log.Info("MediaImportWorker: THIS IS UPDATEDUSER NAME: %v", updatedUserUsername)
+				if ok {
+					mqttURI := os.Getenv("MQTTURI")
+					mqtthelpers.PublishMessage(mqttURI, updatedUserUsername, "MediaDataImportFinished")
+				}
 			} else {
 				log.Error("UserimportWorker: error updating user MediaDataImportFinished :(", updateUserError)
 			}
