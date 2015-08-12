@@ -1,7 +1,6 @@
 package instagram
 
 import (
-	// "errors"
 	"../../neo_helpers"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
@@ -53,19 +52,17 @@ func UserImportWorker(message *workers.Msg) {
 		}
 		if userResponse[0] != nil && ok {
 			log.Info("UserImportWorker: Importing media for already created user")
-			currentUserNodeIdRaw, _ := userResponse[0].(float64)
-			var currentUserNodeId = strconv.FormatFloat(currentUserNodeIdRaw, 'f', 0, 64)
 			updateQuery := fmt.Sprintf("match (c:InstagramUser) where id(c)= %v SET c.MediaDataImportStarted=true", userResponse[0])
 			log.Info("UserImportWorker: QUERY: ", updateQuery)
 			response, updateUserError := neohelpers.UpdateNodeWithCypher(neo4jConnection, updateQuery)
 			if updateUserError == nil {
 				log.Info("UserImportWorker: UPDATING NODE WITH CYPHER: ", response)
 				log.Info("UserImportWorker: User exist, should enqueue MediaImportWorker")
-				workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{igUID, igToken, "", currentUserNodeId})
+				workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{igUID, igToken})
 				log.Info("UserImportWorker: User exist, should enqueue FollowsImportWorker")
-				workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{igUID, igToken, "", currentUserNodeId})
+				workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{igUID, igToken})
 				log.Info("UserImportWorker: User exist, should enqueue FollowersImportWorker")
-				workers.Enqueue("instagramfollowersimportworker", "FollowersImportWorker", []string{igUID, igToken, "", currentUserNodeId, string(6)})
+				workers.Enqueue("instagramfollowersimportworker", "FollowersImportWorker", []string{igUID, igToken, string(6)})
 				return
 			}
 			log.Error("UserimportWorker: error updating user", updateUserError)
@@ -130,11 +127,11 @@ func UserImportWorker(message *workers.Msg) {
 	}
 
 	//Enqueue Media and Follows Importer for new Neo IG User
-	workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{igUID, igToken, "", nodeIDString})
+	workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{igUID, igToken})
 	//Enqueue Follows Importer for new Neo IG User
-	workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{igUID, igToken, "", nodeIDString})
+	workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{igUID, igToken})
 
 	//Enqueue Recent Followers
-	workers.Enqueue("instagramfollowersimportworker", "FollowersImportWorker", []string{igUID, igToken, "", nodeIDString, string(6)})
+	workers.Enqueue("instagramfollowersimportworker", "FollowersImportWorker", []string{igUID, igToken, string(6)})
 	return
 }

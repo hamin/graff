@@ -12,13 +12,11 @@ import (
 	"strconv"
 )
 
+// FollowsImportWorker - Imports an the users an Instagram User Follows to Neo4J
 func FollowsImportWorker(message *workers.Msg) {
 
 	igUID, igUIDErr := message.Args().GetIndex(0).String()
-	log.Info("Starting FollowsImportWorker Import process: ", igUID)
-
 	igToken, igTokenErr := message.Args().GetIndex(1).String()
-	log.Info("Starting FollowsImportWorker Import process: ", igToken)
 
 	cursorString, cursorErr := message.Args().GetIndex(2).String()
 	cursor, _ := strconv.Atoi(cursorString)
@@ -32,6 +30,7 @@ func FollowsImportWorker(message *workers.Msg) {
 		log.Error("FollowsImportWorker: Mssing IG Token")
 		return
 	}
+	log.Info("Starting FollowsImportWorker Import process: ", igUID)
 
 	client := instagram.NewClient(nil)
 	client.AccessToken = igToken
@@ -45,8 +44,7 @@ func FollowsImportWorker(message *workers.Msg) {
 
 	users, next, err := client.Relationships.Follows(igUID, opt)
 	if err != nil {
-		log.Error("FollowsImportWorker:", err)
-		log.Error("FollowsImportWorker: Enqueing back in 1 hour")
+		log.Error("FollowsImportWorker: Enqueing back in 1 hour ", err)
 		performFollowsAgain(igUID, igToken, cursorString)
 		return
 	}
@@ -54,7 +52,7 @@ func FollowsImportWorker(message *workers.Msg) {
 	neo4jConnection := neo4j.Connect(neoHost)
 	batch := neo4jConnection.NewBatch()
 
-	//now we need to iterate trhough users and check if the user exists on neo4j, if user exists we just create
+	//Now we need to iterate through users and check if the user exists on neo4j, if user exists we just create
 	//a relationship with the main node
 	for _, u := range users {
 		fmt.Printf("FollowsImportWorker: ID: %v, Username: %v\n", u.ID, u.Username)
@@ -62,12 +60,10 @@ func FollowsImportWorker(message *workers.Msg) {
 		query := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' return id(c), c.MediaDataImportStarted, c.MediaDataImportFinished", u.ID)
 
 		response, _ := neohelpers.FindUserByCypher(neo4jConnection, query)
-		log.Info("FollowsImportWorker: exstingIGUserNeoNodeID: ", response)
 
 		if len(response) > 0 {
 			userResponse, ok := response[0].([]interface{})
 			if userResponse[0] != nil && ok {
-				log.Info("FollowsImportWorker: userResponse", userResponse)
 				unique := &neo4j.Unique{}
 				unique.IndexName = "igpeople"
 				unique.Key = "InstagramID"
@@ -75,7 +71,6 @@ func FollowsImportWorker(message *workers.Msg) {
 				batch.Create(neohelpers.CreateCypherRelationshipOperationFrom(igUID, unique, "instagram_follows"))
 			}
 		} else {
-			log.Info("FollowsImportWorker: We should create this user on neo!")
 			node := &neo4j.Node{}
 			igNeoUser := User{}
 			igNeoUser.InstagramID = u.ID
@@ -105,16 +100,15 @@ func FollowsImportWorker(message *workers.Msg) {
 		log.Error("FollowsImportWorker: IGUID: %v", igUID)
 		performFollowsAgain(igUID, igToken, cursorString)
 		return
-	} else {
-		log.Info("FollowsImportWorker: Successfully imported Media to Neo4J")
-		if next.Cursor != "" {
-			log.Info("FollowsImportWorker: *** This is our next.Cursor ", next.Cursor)
-			workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{igUID, igToken, next.Cursor, ""})
-		} else {
-			log.Info("FollowsImportWorker: Done Importing Follows for IG User!")
-		}
 	}
 
+	log.Info("FollowsImportWorker: Successfully imported Media to Neo4J")
+	if next.Cursor != "" {
+		log.Info("FollowsImportWorker: *** This is our next.Cursor ", next.Cursor)
+		workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{igUID, igToken, next.Cursor})
+	} else {
+		log.Info("FollowsImportWorker: Done Importing Follows for IG User!")
+	}
 }
 
 // Retry due to IG API Rate Limit or another Error

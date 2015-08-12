@@ -22,7 +22,7 @@ func PublishMessage(mqttURI string, channel string, message string) {
 		},
 	})
 
-	// Terminate the Client.
+	// Defer Terminating the Client at the end of Scope
 	defer cli.Terminate()
 
 	// Connect to the MQTT Server.
@@ -45,12 +45,4 @@ func PublishMessage(mqttURI string, channel string, message string) {
 	if pubErr != nil {
 		log.Error("mqtthelpers: Error publishing message: %v", pubErr)
 	}
-
-	// // Disconnect the Network Connection.
-	// if disErr := cli.Disconnect(); disErr != nil {
-	// 	// panic(err)
-	// 	fmt.Println("WE HAVE ERR DIS: %v", disErr)
-	// }
-
-	// cli.Disconnect()
 }

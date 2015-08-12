@@ -16,10 +16,7 @@ import (
 // MediaImportWorker Imports Instagram media to Neo4J
 func MediaImportWorker(message *workers.Msg) {
 	igUID, igUIDErr := message.Args().GetIndex(0).String()
-	log.Info("MediaImportWorker: Starting NeoMedia Import process: ", igUID)
-
 	igToken, igTokenErr := message.Args().GetIndex(1).String()
-	log.Info("MediaImportWorker: Starting NeoMedia Import process: ", igToken)
 
 	maxID, maxIDErr := message.Args().GetIndex(2).String()
 
@@ -31,6 +28,7 @@ func MediaImportWorker(message *workers.Msg) {
 		log.Error("MediaImportWorker: Mssing IG Token")
 		return
 	}
+	log.Info("MediaImportWorker: Starting NeoMedia Import process: ", igUID)
 
 	client := instagram.NewClient(nil)
 	client.AccessToken = igToken
@@ -38,7 +36,6 @@ func MediaImportWorker(message *workers.Msg) {
 	opt := &instagram.Parameters{Count: 20}
 
 	if (maxIDErr == nil) && (maxID != "") {
-		//log.Info("MediaImportWorker: We have a Max ID")
 		opt.MaxID = maxID
 	}
 
@@ -58,6 +55,7 @@ func MediaImportWorker(message *workers.Msg) {
 	neo4jConnection := neo4j.Connect(neoHost)
 	batch := neo4jConnection.NewBatch()
 
+	// Create Media Nodes
 	for _, m := range media {
 		node := &neo4j.Node{}
 		igMediaItem := MediaItem{}
@@ -108,7 +106,6 @@ func MediaImportWorker(message *workers.Msg) {
 		userUnique.Value = igUID
 		batch.Create(neohelpers.CreateCypherRelationshipOperationFromDifferentIndex(userUnique, mediaItemUnique, "instagram_media_item"))
 
-		// Handle has_venue is true
 		if hasVenue {
 			// Query Neo4J w/ VENUE IG ID
 			query := fmt.Sprintf("match (c:InstagramLocation) where c.InstagramID = '%v' return id(c)", m.Location.ID)
@@ -157,18 +154,17 @@ func MediaImportWorker(message *workers.Msg) {
 		log.Info("MediaImportWorker: Successfully imported Media to Neo4J")
 
 		if next.NextMaxID != "" {
-			workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{igUID, igToken, next.NextMaxID, ""})
+			workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{igUID, igToken, next.NextMaxID})
 		} else {
 			log.Info("MediaImportWorker: Done Importing Media for IG User!")
-			//We should mark this user data as finished importing
 
+			//Mark this user data as finished importing
 			updateQuery := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' SET c.MediaDataImportFinished=true RETURN c.Username", igUID)
 			response, updateUserError := neohelpers.UpdateNodeWithCypher(neo4jConnection, updateQuery)
 			if updateUserError == nil {
+				// Notify Mosquitto MQTT Broker of Media Import Completion
 				updatedUserFirstSlice, ok := response[0].([]interface{})
 				updatedUserUsername, ok := updatedUserFirstSlice[0].(string)
-				log.Info("MediaImportWorker: UPDATING NODE WITH CYPHER successfully MediaDataImportFinished=true", response)
-				log.Info("MediaImportWorker: THIS IS UPDATEDUSER NAME: %v", updatedUserUsername)
 				if ok {
 					mqttURI := os.Getenv("MQTTURI")
 					mqtthelpers.PublishMessage(mqttURI, updatedUserUsername, "MediaDataImportFinished")

@@ -9,16 +9,12 @@ import (
 	"github.com/jrallison/go-workers"
 	"github.com/maggit/go-instagram/instagram"
 	"os"
-	// "strconv"
 )
 
 // SearchImportWorker - Import IG Users that ppl are Searching for but are not in Graff
 func SearchImportWorker(message *workers.Msg) {
 	igUsername, igUsernameErr := message.Args().GetIndex(0).String()
-	log.Info("Starting SearchImportWorker Import process: ", igUsername)
-
 	igToken, igTokenErr := message.Args().GetIndex(1).String()
-	log.Info("Starting SearchImportWorker Import process: ", igToken)
 
 	if igUsernameErr != nil {
 		log.Error("SearchImportWorker: Missing IG User ID")
@@ -29,6 +25,7 @@ func SearchImportWorker(message *workers.Msg) {
 		log.Error("SearchImportWorker: Mssing IG Token")
 		return
 	}
+	log.Info("Starting SearchImportWorker Import process: ", igUsername)
 
 	client := instagram.NewClient(nil)
 	client.AccessToken = igToken
@@ -54,20 +51,16 @@ func SearchImportWorker(message *workers.Msg) {
 
 	query := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' return id(c), c.MediaDataImportStarted, c.MediaDataImportFinished", igUser.ID)
 	response, _ := neohelpers.FindUserByCypher(neo4jConnection, query)
-	log.Info("SearchImportWorker: FindUserByCypher resp: ", response)
 
 	if len(response) > 0 {
 		// NEO User Exists, check if their media + follows is imported
 		userResponse, ok := response[0].([]interface{})
 		if userResponse[1] != true && ok {
-			log.Info("SearchImportWorker: User is In Neo But Media Import Not started: %v", igUsername)
 			startMediaAndFollowsWorker(igUser.ID, igToken)
 		}
 		updateQuery := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' SET c.MediaDataImportStarted=true RETURN c", igUser.ID)
-		updateResponse, updateUserError := neohelpers.UpdateNodeWithCypher(neo4jConnection, updateQuery)
-		if updateUserError == nil {
-			log.Info("SearchImportWorker: UPDATING NODE WITH CYPHER successfully MediaDataImportStarted=true", updateResponse)
-		} else {
+		_, updateUserError := neohelpers.UpdateNodeWithCypher(neo4jConnection, updateQuery)
+		if updateUserError != nil {
 			log.Error("SearchImportWorker: error updating user MediaDataImportStarted :(", updateUserError)
 		}
 		return
@@ -79,10 +72,8 @@ func SearchImportWorker(message *workers.Msg) {
 	igFetchedUser, igErr := client.Users.Get(igUser.ID)
 	if igErr != nil {
 		log.Error("SearchImportWorker: IG User Fetch Error: %v\n", igErr)
-		log.Error("SearchImportWorker: No IG user found: ", igUser.ID)
 		return
 	}
-	log.Info("SearchImportWorker: We should create this user on neo!")
 	batch := neo4jConnection.NewBatch()
 
 	node := &neo4j.Node{}
@@ -124,7 +115,7 @@ func performSearchAgain(igUsername string, igToken string) {
 
 func startMediaAndFollowsWorker(igUserID string, igToken string) {
 	//Enqueue Media and Follows Importer for new Neo IG User
-	workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{igUserID, igToken, "", ""})
+	workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{igUserID, igToken})
 	//Enqueue Follows Importer for new Neo IG User
-	workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{igUserID, igToken, "", ""})
+	workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{igUserID, igToken})
 }

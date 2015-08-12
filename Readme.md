@@ -28,3 +28,8 @@ CREATE INDEX ON :InstagramLocation(Username)
 CREATE INDEX ON :InstagramLocation(InstagramID)
 ```
 
+### Deployment Build Binary
+
+```
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 goop go build -o graff worker.go
+```

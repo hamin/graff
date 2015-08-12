@@ -13,6 +13,7 @@ var neoHelpers NeoHelpers
 type NeoHelpers struct {
 }
 
+// UpdateNodeWithCypher - Update node with Cypher
 func UpdateNodeWithCypher(neo4jConnection *neo4j.Neo4j, query string) ([]interface{}, error) {
 	cypher := &neo4j.Cypher{
 		Query: map[string]string{
@@ -37,6 +38,7 @@ func UpdateNodeWithCypher(neo4jConnection *neo4j.Neo4j, query string) ([]interfa
 
 }
 
+// FindUserByCypher - Finds User node by Cypher query
 func FindUserByCypher(neo4jConnection *neo4j.Neo4j, query string) ([]interface{}, error) {
 	cypher := &neo4j.Cypher{
 		Query: map[string]string{
@@ -61,7 +63,7 @@ func FindUserByCypher(neo4jConnection *neo4j.Neo4j, query string) ([]interface{}
 }
 
 // FindIDByCypher - Executes Cypher Query
-// Neo4J Helpers that probably need to be extracted
+// TODO Refactor - Use a struct to map the response from cypher query instead of casting slices
 func FindIDByCypher(neo4jConnection *neo4j.Neo4j, query string) (int, error) {
 	cypher := &neo4j.Cypher{
 		Query: map[string]string{
@@ -106,6 +108,7 @@ func FindIDByCypher(neo4jConnection *neo4j.Neo4j, query string) (int, error) {
 	return int(thirdSlice), nil
 }
 
+// CreateCypherLabelOperation - Use to create a Label in a Batch Operation
 func CreateCypherLabelOperation(unique *neo4j.Unique, label string) *neo4j.Cypher {
 	query := fmt.Sprintf("START n = node:%v(%v='%v') set n %v return n", unique.IndexName, unique.Key, unique.Value, label)
 	cypher := &neo4j.Cypher{
