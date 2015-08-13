@@ -134,11 +134,11 @@ func MediaImportWorker(message *workers.Msg) {
 
 			} else {
 				// Add relationship between NEO VENUE and NEO MEDIA
-				unique := &neo4j.Unique{}
-				unique.IndexName = "igmedialocation"
-				unique.Key = "InstagramID"
-				unique.Value = mediaLocationIDStr
-				batch.Create(neohelpers.CreateCypherRelationshipOperationFrom(igUID, unique, "instagram_location"))
+				mediaLocationUnique := &neo4j.Unique{}
+				mediaLocationUnique.IndexName = "igmedialocation"
+				mediaLocationUnique.Key = "InstagramID"
+				mediaLocationUnique.Value = mediaLocationIDStr
+				batch.Create(neohelpers.CreateCypherRelationshipOperationFromDifferentIndex(mediaItemUnique, mediaLocationUnique, "instagram_location"))
 			}
 		}
 	}
@@ -179,7 +179,8 @@ func MediaImportWorker(message *workers.Msg) {
 
 // Retry due to IG API Rate Limit or another Error
 func performMediaAgain(igUID string, igToken string, cursorString string) {
-	log.Error("InstagramMediaImportWorker: Retrying Due To Error")
+	log.Error("InstagramMediaImportWorker: Retrying Due To Error IGUID: %v", igUID)
+	log.Error("InstagramMediaImportWorker: Retrying Due To Error IGTOKEN: %v", igToken)
 	if cursorString != "" {
 		workers.EnqueueIn("instagramediaimportworker", "MediaImportWorker", 3600.0, []string{igUID, igToken, cursorString, ""})
 	} else {
