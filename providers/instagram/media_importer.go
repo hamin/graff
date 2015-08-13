@@ -128,7 +128,7 @@ func MediaImportWorker(message *workers.Msg) {
 				mediaLocationUnique.Key = "InstagramID"
 				mediaLocationUnique.Value = igMediaLocation.InstagramID
 
-				batch.CreateUnique(node, mediaLocationUnique)
+				batch.CreateUnique(venueNode, mediaLocationUnique)
 				batch.Create(neohelpers.CreateCypherLabelOperation(mediaLocationUnique, ":InstagramLocation"))
 				batch.Create(neohelpers.CreateCypherRelationshipOperationFromDifferentIndex(mediaItemUnique, mediaLocationUnique, "instagram_location"))
 
