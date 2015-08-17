@@ -32,6 +32,13 @@ func FollowsImportWorker(message *workers.Msg) {
 	}
 	log.Info("Starting FollowsImportWorker Import process: ", igUID)
 
+	newFollowerImporterString, newFollowerImporterErr := message.Args().GetIndex(3).String()
+
+	importForNewFollower := false
+	if newFollowerImporterString == "NewFollowerImport" && newFollowerImporterErr == nil {
+		importForNewFollower = true
+	}
+
 	client := instagram.NewClient(nil)
 	client.AccessToken = igToken
 
@@ -45,7 +52,7 @@ func FollowsImportWorker(message *workers.Msg) {
 	users, next, err := client.Relationships.Follows(igUID, opt)
 	if err != nil {
 		log.Error("FollowsImportWorker: Enqueing back in 1 hour ", err)
-		performFollowsAgain(igUID, igToken, cursorString)
+		performFollowsAgain(igUID, igToken, cursorString, newFollowerImporterString)
 		return
 	}
 	neoHost := os.Getenv("NEO4JURI")
@@ -98,25 +105,33 @@ func FollowsImportWorker(message *workers.Msg) {
 		log.Error(err)
 		log.Error(res)
 		log.Error("FollowsImportWorker: IGUID: %v", igUID)
-		performFollowsAgain(igUID, igToken, cursorString)
+		performFollowsAgain(igUID, igToken, cursorString, newFollowerImporterString)
 		return
 	}
 
 	log.Info("FollowsImportWorker: Successfully imported Media to Neo4J")
 	if next.Cursor != "" {
 		log.Info("FollowsImportWorker: *** This is our next.Cursor ", next.Cursor)
-		workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{igUID, igToken, next.Cursor})
+		workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{igUID, igToken, next.Cursor, newFollowerImporterString})
 	} else {
 		log.Info("FollowsImportWorker: Done Importing Follows for IG User!")
+		updateRedisFollowImportFinished(importForNewFollower, igUID)
 	}
 }
 
 // Retry due to IG API Rate Limit or another Error
-func performFollowsAgain(igUID string, igToken string, cursorString string) {
+func performFollowsAgain(igUID string, igToken string, cursorString string, newFollowerImporterString string) {
 	log.Error("instagramfollowsimportworker: Retrying Due To Error")
 	if cursorString != "" {
-		workers.EnqueueIn("instagramfollowsimportworker", "FollowsImportWorker", 3600.0, []string{igUID, igToken, cursorString, ""})
+		workers.EnqueueIn("instagramfollowsimportworker", "FollowsImportWorker", 3600.0, []string{igUID, igToken, cursorString, newFollowerImporterString})
 	} else {
-		workers.EnqueueIn("instagramfollowsimportworker", "FollowsImportWorker", 3600.0, []string{igUID, igToken, "", ""})
+		workers.EnqueueIn("instagramfollowsimportworker", "FollowsImportWorker", 3600.0, []string{igUID, igToken, "", newFollowerImporterString})
+	}
+}
+
+func updateRedisFollowImportFinished(importForNewFollower bool, followerIGUID string) {
+	if importForNewFollower {
+		// Update Redis
+		// Get all Redis Keys by followerIGUID and Set the Redis key FolllowImportFinished to TRUE
 	}
 }

@@ -30,6 +30,13 @@ func MediaImportWorker(message *workers.Msg) {
 	}
 	log.Info("MediaImportWorker: Starting NeoMedia Import process: ", igUID)
 
+	newFollowerImporterString, newFollowerImporterErr := message.Args().GetIndex(3).String()
+
+	importForNewFollower := false
+	if newFollowerImporterString == "NewFollowerImport" && newFollowerImporterErr == nil {
+		importForNewFollower = true
+	}
+
 	client := instagram.NewClient(nil)
 	client.AccessToken = igToken
 
@@ -47,7 +54,7 @@ func MediaImportWorker(message *workers.Msg) {
 
 	if err != nil {
 		log.Error("InstagramMediaImportWorker: Instagram API Failed : %v", err)
-		performMediaAgain(igUID, igToken, maxID)
+		performMediaAgain(igUID, igToken, maxID, newFollowerImporterString)
 		return
 	}
 
@@ -149,7 +156,7 @@ func MediaImportWorker(message *workers.Msg) {
 		log.Error(err)
 		log.Error(res)
 		log.Error("MediaImportWorker: FAILED WITH ARGS| igUID: %v  igToken: %v maxID: %v ", igUID, igToken, maxID)
-		performMediaAgain(igUID, igToken, maxID)
+		performMediaAgain(igUID, igToken, maxID, newFollowerImporterString)
 	} else {
 		log.Info("MediaImportWorker: Successfully imported Media to Neo4J")
 
@@ -169,6 +176,7 @@ func MediaImportWorker(message *workers.Msg) {
 					mqttURI := os.Getenv("MQTTURI")
 					mqtthelpers.PublishMessage(mqttURI, updatedUserUsername, "MediaDataImportFinished")
 				}
+				updateRedisFollowImportFinished(importForNewFollower, igUID)
 			} else {
 				log.Error("UserimportWorker: error updating user MediaDataImportFinished :(", updateUserError)
 			}
@@ -178,12 +186,19 @@ func MediaImportWorker(message *workers.Msg) {
 }
 
 // Retry due to IG API Rate Limit or another Error
-func performMediaAgain(igUID string, igToken string, cursorString string) {
+func performMediaAgain(igUID string, igToken string, cursorString string, newFollowerImporterString string) {
 	log.Error("InstagramMediaImportWorker: Retrying Due To Error IGUID: %v", igUID)
 	log.Error("InstagramMediaImportWorker: Retrying Due To Error IGTOKEN: %v", igToken)
 	if cursorString != "" {
-		workers.EnqueueIn("instagramediaimportworker", "MediaImportWorker", 3600.0, []string{igUID, igToken, cursorString, ""})
+		workers.EnqueueIn("instagramediaimportworker", "MediaImportWorker", 3600.0, []string{igUID, igToken, cursorString, newFollowerImporterString})
 	} else {
-		workers.EnqueueIn("instagramediaimportworker", "MediaImportWorker", 3600.0, []string{igUID, igToken, "", ""})
+		workers.EnqueueIn("instagramediaimportworker", "MediaImportWorker", 3600.0, []string{igUID, igToken, "", newFollowerImporterString})
+	}
+}
+
+func updateRedisMediaImportFinished(importForNewFollower bool, followerIGUID string) {
+	if importForNewFollower {
+		// Update Redis
+		// Get all Redis Keys by followerIGUID and Set the Redis key MediaImportFinished to TRUE
 	}
 }
