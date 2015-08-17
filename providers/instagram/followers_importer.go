@@ -24,6 +24,8 @@ func FollowersImportWorker(message *workers.Msg) {
 	cursorString, cursorErr := message.Args().GetIndex(3).String()
 	cursor, _ := strconv.Atoi(cursorString)
 
+	newFollowerImporterString, newFollowerImporterErr := message.Args().GetIndex(4).String()
+
 	if igUIDErr != nil {
 		log.Error("FollowersImportWorker: Missing IG User ID")
 		return
@@ -34,6 +36,11 @@ func FollowersImportWorker(message *workers.Msg) {
 		return
 	}
 	log.Info("Starting FollowersImportWorker Import process: ", igUID)
+
+	importForNewFollower := false
+	if newFollowerImporterString == "NewFollowerImport" && newFollowerImporterErr == nil {
+		importForNewFollower = true
+	}
 
 	client := instagram.NewClient(nil)
 	client.AccessToken = igToken
@@ -53,7 +60,7 @@ func FollowersImportWorker(message *workers.Msg) {
 	users, _, err := client.Relationships.FollowedBy(igUID, opt)
 	if err != nil {
 		log.Error("FollowersImportWorkerError:", err)
-		performFollowersAgain(igUID, igToken)
+		performFollowersAgain(igUID, igToken, newFollowerImporterString)
 		return
 	}
 
@@ -104,7 +111,7 @@ func FollowersImportWorker(message *workers.Msg) {
 	if err != nil {
 		log.Error("FollowersImportWorker: THERE WAS AN ERROR EXECUTING BATCH!!!!")
 		log.Error(err)
-		performFollowersAgain(igUID, igToken)
+		performFollowersAgain(igUID, igToken, newFollowerImporterString)
 	} else {
 		log.Info("FollowersImportWorker: Successfully imported Media to Neo4J")
 
@@ -129,13 +136,23 @@ func FollowersImportWorker(message *workers.Msg) {
 							return
 						}
 
+						igUserIDString := nodeReponse.Data["InstagramID"].(string)
+
 						// Import Existing User Node's Data if it Hasn't Been imported
 						if nodeReponse.Data["MediaDataImportStarted"] != true {
 							// Let's make sure to Enquque Media+Follows Importers
-							igUserIDString := nodeReponse.Data["InstagramID"].(string)
-							workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{igUserIDString, igToken})
+
+							// workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{igUserIDString, igToken})
 							log.Error("FollowersImportWorker: JUST IMPORTED FOLLOWS FOR A RELATIONSHIP THAT HASNT BEEN IMPORETED YET")
-							workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{igUserIDString, igToken})
+							// workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{igUserIDString, igToken})
+							startMediaImport(igUserIDString, igToken, newFollowerImporterString)
+							startFollowsImport(igUserIDString, igToken, newFollowerImporterString)
+						}
+
+						if nodeReponse.Data["MediaDataImportFinished"] == true {
+							updateRedisMediaAndFollowImportFinished(importForNewFollower, igUID, igUserIDString)
+						} else {
+							updateRedisForNewFollowerImport(importForNewFollower, igUID, igUserIDString)
 						}
 					}
 				} else {
@@ -145,10 +162,14 @@ func FollowersImportWorker(message *workers.Msg) {
 						if data["InstagramID"] != nil {
 							dataInstagramID, _ := data["InstagramID"].(string)
 							log.Info("FollowersImportWorker: GOING TO GET THEIR dataInstagramID %v ", dataInstagramID)
-							workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{dataInstagramID, igToken})
+							// workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{dataInstagramID, igToken})
+							startMediaImport(dataInstagramID, igToken, newFollowerImporterString)
 
 							log.Info("FollowersImportWorker: DATA: %v", data)
-							workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{dataInstagramID, igToken})
+							// workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{dataInstagramID, igToken})
+							startFollowsImport(dataInstagramID, igToken, newFollowerImporterString)
+
+							updateRedisForNewFollowerImport(importForNewFollower, igUID, dataInstagramID)
 						}
 					}
 				}
@@ -159,7 +180,29 @@ func FollowersImportWorker(message *workers.Msg) {
 }
 
 // Retry due to IG API Rate Limit or another Error
-func performFollowersAgain(igUID string, igToken string) {
+func performFollowersAgain(igUID string, igToken string, newFollowerImporterString string) {
 	log.Error("FollowersImportWorker: Retrying Due To Error")
-	workers.EnqueueIn("FollowersImportWorker", "FollowersImportWorker", 3600.0, []string{igUID, igToken, "", "", string(6)})
+	workers.EnqueueIn("FollowersImportWorker", "FollowersImportWorker", 3600.0, []string{igUID, igToken, "", "", string(6), newFollowerImporterString})
+}
+
+// This function is to set Redis value for a New Follower import that gets queued by parent app to notify parent app of changes
+// whenever a new follower import is updated
+func updateRedisForNewFollowerImport(importForNewFollower bool, originalUserIGUID string, followerIGUID string) {
+	if importForNewFollower {
+		// Update Redis
+	}
+}
+
+func updateRedisMediaAndFollowImportFinished(importForNewFollower bool, originalUserIGUID string, followerIGUID string) {
+	if importForNewFollower {
+		// Update Redis
+	}
+}
+
+func startMediaImport(igUID string, igToken string, newFollowerImporterString string) {
+	workers.Enqueue("instagramediaimportworker", "MediaImportWorker", []string{igUID, igToken, "", newFollowerImporterString})
+}
+
+func startFollowsImport(igUID string, igToken string, newFollowerImporterString string) {
+	workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{igUID, igToken, "", newFollowerImporterString})
 }
