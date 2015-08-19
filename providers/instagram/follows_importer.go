@@ -65,7 +65,8 @@ func FollowsImportWorker(message *workers.Msg) {
 	for _, u := range users {
 		fmt.Printf("FollowsImportWorker: ID: %v, Username: %v\n", u.ID, u.Username)
 		// Query if we already have imported user to Neo
-		query := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' return id(c), c.MediaDataImportStarted, c.MediaDataImportFinished", u.ID)
+		//query := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' return id(c), c.MediaDataImportStarted, c.MediaDataImportFinished", u.ID)
+		query := fmt.Sprintf("START c = node:igpeople(InstagramID='%v') return id(c), c.MediaDataImportStarted, c.MediaDataImportFinished", u.ID)
 
 		response, _ := neohelpers.FindUserByCypher(neo4jConnection, query)
 
