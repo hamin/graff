@@ -15,8 +15,9 @@ var FollowerRecord *zoom.ModelType
 type NewFollowerRecord struct {
 	OriginalUserIGUID     string `zoom:"index"`
 	FollowerIGUID         string `zoom:"index"`
-	MediaImportFinished   bool
-	FollowsImportFinished bool
+	MediaImportFinished   bool   `zoom:"index"`
+	FollowsImportFinished bool   `zoom:"index"`
+	EmailSent             bool
 	zoom.RandomId
 }
 
