@@ -49,7 +49,8 @@ func SearchImportWorker(message *workers.Msg) {
 	neoHost := os.Getenv("NEO4JURI")
 	neo4jConnection := neo4j.Connect(neoHost)
 
-	query := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' return id(c), c.MediaDataImportStarted, c.MediaDataImportFinished", igUser.ID)
+	//query := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' return id(c), c.MediaDataImportStarted, c.MediaDataImportFinished", igUser.ID)
+	query := fmt.Sprintf("START c = node:igpeople(InstagramID='%v') return id(c), c.MediaDataImportStarted, c.MediaDataImportFinished", igUser.ID)
 	response, _ := neohelpers.FindUserByCypher(neo4jConnection, query)
 
 	if len(response) > 0 {
@@ -58,7 +59,9 @@ func SearchImportWorker(message *workers.Msg) {
 		if userResponse[1] != true && ok {
 			startMediaAndFollowsWorker(igUser.ID, igToken)
 		}
-		updateQuery := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' SET c.MediaDataImportStarted=true RETURN c", igUser.ID)
+		//START c = node:igpeople(InstagramID='%v')
+		//updateQuery := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' SET c.MediaDataImportStarted=true RETURN c", igUser.ID)
+		updateQuery := fmt.Sprintf("START c = node:igpeople(InstagramID='%v') SET c.MediaDataImportStarted=true RETURN c", igUser.ID)
 		_, updateUserError := neohelpers.UpdateNodeWithCypher(neo4jConnection, updateQuery)
 		if updateUserError != nil {
 			log.Error("SearchImportWorker: error updating user MediaDataImportStarted :(", updateUserError)
