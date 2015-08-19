@@ -116,7 +116,8 @@ func MediaImportWorker(message *workers.Msg) {
 
 		if hasVenue {
 			// Query Neo4J w/ VENUE IG ID
-			query := fmt.Sprintf("match (c:InstagramLocation) where c.InstagramID = '%v' return id(c)", m.Location.ID)
+			//query := fmt.Sprintf("match (c:InstagramLocation) where c.InstagramID = '%v' return id(c)", m.Location.ID)
+			query := fmt.Sprintf("START c = node:igmedialocation(InstagramID='%v') return id(c)", m.Location.ID)
 			_, err := neohelpers.FindIDByCypher(neo4jConnection, query)
 
 			mediaLocationIDStr := strconv.Itoa(m.Location.ID)
