@@ -62,7 +62,7 @@ func UserImportWorker(message *workers.Msg) {
 				log.Info("UserImportWorker: User exist, should enqueue FollowsImportWorker")
 				workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{igUID, igToken})
 				log.Info("UserImportWorker: User exist, should enqueue FollowersImportWorker")
-				workers.Enqueue("instagramfollowersimportworker", "FollowersImportWorker", []string{igUID, igToken, string(6)})
+				workers.Enqueue("instagramfollowersimportworker", "FollowersImportWorker", []string{igUID, igToken, strconv.Itoa(6)})
 				return
 			}
 			log.Error("UserimportWorker: error updating user", updateUserError)
@@ -132,6 +132,6 @@ func UserImportWorker(message *workers.Msg) {
 	workers.Enqueue("instagramfollowsimportworker", "FollowsImportWorker", []string{igUID, igToken})
 
 	//Enqueue Recent Followers
-	workers.Enqueue("instagramfollowersimportworker", "FollowersImportWorker", []string{igUID, igToken, string(6)})
+	workers.Enqueue("instagramfollowersimportworker", "FollowersImportWorker", []string{igUID, igToken, strconv.Itoa(6)})
 	return
 }

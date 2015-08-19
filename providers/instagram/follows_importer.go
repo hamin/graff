@@ -2,6 +2,7 @@ package instagram
 
 import (
 	"../../neo_helpers"
+	"../../redis_store"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/cihangir/neo4j"
@@ -133,5 +134,31 @@ func updateRedisFollowImportFinished(importForNewFollower bool, followerIGUID st
 	if importForNewFollower {
 		// Update Redis
 		// Get all Redis Keys by followerIGUID and Set the Redis key FolllowImportFinished to TRUE
+
+		followerRecords := []*redisstore.NewFollowerRecord{}
+
+		q := redisstore.FollowerRecord.NewQuery().Filter("FollowerIGUID =", followerIGUID)
+		if err := q.Run(&followerRecords); err != nil {
+			// handle err
+			log.Error("FollowsImportWorker: updateRedisFollowImportFinished Error %v", err)
+			return
+		}
+		if len(followerRecords) > 0 {
+			t := redisstore.RedisStorePool.NewTransaction()
+			numRecords := 0
+			for _, record := range followerRecords {
+				// save all records
+				record.FollowsImportFinished = true
+			}
+
+			t.Count(redisstore.FollowerRecord, &numRecords)
+
+			if transErr := t.Exec(); transErr != nil {
+				// handle error
+				log.Error("FollowsImportWorker: Redis Store Transaction Error: %v", transErr)
+			}
+			// numRecords will now equal the number of redisstore.NewFollowerRecord models in the database
+			log.Info("FollowsImportWorker: Redis Store Update: %v", numRecords)
+		}
 	}
 }

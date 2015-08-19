@@ -6,6 +6,8 @@ import (
 	"github.com/jrallison/go-workers"
 	"os"
 	// "runtime"
+	"./redis_store"
+	"github.com/albrow/zoom"
 )
 
 func main() {
@@ -20,10 +22,24 @@ func main() {
 	redisPwd := os.Getenv("REDIS_PWD")
 
 	if (redisServer == "") || (redisDB == "") || (redisPool == "") {
-		// fmt.Println("Please Start Worker with Required Arguments")
 		log.Error("Please Start Worker with Required Arguments")
 		return
 	}
+
+	rediSStoreConfig := zoom.PoolConfig{}
+	rediSStoreConfig.Address = redisServer
+	rediSStoreConfig.Database = 11
+	rediSStoreConfig.Password = redisPwd
+
+	redisstore.InitRedisStore(&rediSStoreConfig)
+
+	defer func() {
+		if err := redisstore.ClosePool(); err != nil {
+			// handle error
+			log.Error("Redis Store Error: %v", err)
+			return
+		}
+	}()
 
 	workers.Configure(map[string]string{
 		// location of redis instance

@@ -5,3 +5,4 @@ github.com/Sirupsen/logrus
 github.com/fatih/structs
 github.com/mitchellh/mapstructure
 github.com/yosssi/gmq
+github.com/albrow/zoom

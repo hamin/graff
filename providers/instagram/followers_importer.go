@@ -2,6 +2,7 @@ package instagram
 
 import (
 	"../../neo_helpers"
+	"../../redis_store"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
 	"github.com/cihangir/neo4j"
@@ -47,8 +48,11 @@ func FollowersImportWorker(message *workers.Msg) {
 	opt := &instagram.Parameters{}
 
 	if (followersLimitError == nil) && (followersLimit > 0) {
+		log.Error("ITS GONNA SET CUSTOM COUNT: %v", followersLimit)
 		opt.Count = uint64(followersLimit)
 	} else {
+		log.Error("THIS IS CUSTOM COUNT: %v", followersLimit)
+		log.Error("ITS NOT GONNA SET CUSTOM COUNT: %v", followersLimitError)
 		opt.Count = 6
 	}
 
@@ -190,12 +194,45 @@ func performFollowersAgain(igUID string, igToken string, newFollowerImporterStri
 func updateRedisForNewFollowerImport(importForNewFollower bool, originalUserIGUID string, followerIGUID string) {
 	if importForNewFollower {
 		// Update Redis
+		log.Error("FollowersImportWorker: updateRedisForNewFollowerImport ORIGINAL IGUID %v", originalUserIGUID)
+		log.Error("FollowersImportWorker: updateRedisForNewFollowerImport FOLLOWER IGUID %v", followerIGUID)
+		followerRecord := redisstore.NewFollowerRecord{}
+		q := redisstore.FollowerRecord.NewQuery().Filter("FollowerIGUID =", followerIGUID).Filter("OriginalUserIGUID =", originalUserIGUID).Limit(1)
+		if err := q.RunOne(&followerRecord); err != nil {
+			// Record not found
+			log.Error("FollowersImportWorker: Redis updateRedisForNewFollowerImport RECORD NOT FOUND SHOULD CREATE NEW")
+		}
+
+		followerRecord.OriginalUserIGUID = originalUserIGUID
+		followerRecord.FollowerIGUID = followerIGUID
+		followerRecord.FollowsImportFinished = true
+		if updateErr := redisstore.FollowerRecord.Save(&followerRecord); updateErr != nil {
+			// update handle error
+			log.Error("FollowersImportWorker: Redis updateRedisForNewFollowerImport UpdateError %v", updateErr)
+		}
 	}
 }
 
 func updateRedisMediaAndFollowImportFinished(importForNewFollower bool, originalUserIGUID string, followerIGUID string) {
 	if importForNewFollower {
 		// Update Redis
+		log.Error("FollowersImportWorker: updateRedisMediaAndFollowImportFinished ORIGINAL IGUID %v", originalUserIGUID)
+		log.Error("FollowersImportWorker: updateRedisMediaAndFollowImportFinished FOLLOWER IGUID %v", followerIGUID)
+		followerRecord := redisstore.NewFollowerRecord{}
+		q := redisstore.FollowerRecord.NewQuery().Filter("FollowerIGUID =", followerIGUID).Filter("OriginalUserIGUID =", originalUserIGUID).Limit(1)
+		if err := q.RunOne(&followerRecord); err != nil {
+			// Record not found
+			log.Error("FollowersImportWorker: Redis updateRedisMediaAndFollowImportFinished RECORD NOT FOUND SHOULD CREATE NEW")
+		}
+
+		followerRecord.OriginalUserIGUID = originalUserIGUID
+		followerRecord.FollowerIGUID = followerIGUID
+		followerRecord.MediaImportFinished = true
+		followerRecord.FollowsImportFinished = true
+		if updateErr := redisstore.FollowerRecord.Save(&followerRecord); updateErr != nil {
+			// update handle error
+			log.Error("FollowersImportWorker: Redis updateRedisMediaAndFollowImportFinished UpdateError %v", updateErr)
+		}
 	}
 }
 
