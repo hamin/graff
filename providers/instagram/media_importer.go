@@ -173,11 +173,12 @@ func MediaImportWorker(message *workers.Msg) {
 				// Notify Mosquitto MQTT Broker of Media Import Completion
 				updatedUserFirstSlice, ok := response[0].([]interface{})
 				updatedUserUsername, ok := updatedUserFirstSlice[0].(string)
+				updateRedisFollowImportFinished(importForNewFollower, igUID)
 				if ok {
 					mqttURI := os.Getenv("MQTTURI")
 					mqtthelpers.PublishMessage(mqttURI, updatedUserUsername, "MediaDataImportFinished")
 				}
-				updateRedisFollowImportFinished(importForNewFollower, igUID)
+
 			} else {
 				log.Error("UserimportWorker: error updating user MediaDataImportFinished :(", updateUserError)
 			}
