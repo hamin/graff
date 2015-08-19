@@ -36,7 +36,8 @@ func UserImportWorker(message *workers.Msg) {
 	neo4jConnection := neo4j.Connect(neoHost)
 
 	// Query if we already have imported user to Neo
-	query := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' return id(c), c.MediaDataImportStarted, c.MediaDataImportFinished", igUID)
+	//query := fmt.Sprintf("match (c:InstagramUser) where c.InstagramID = '%v' return id(c), c.MediaDataImportStarted, c.MediaDataImportFinished", igUID)
+	query := fmt.Sprintf("START c = node:igpeople(InstagramID='%v') return id(c), c.MediaDataImportStarted, c.MediaDataImportFinished", igUID)
 	log.Info("UserImportWorker: THIS IS IG USER CYPHER QUERY: %v ", query) // Confirm this Cypher Query
 
 	response, _ := neohelpers.FindUserByCypher(neo4jConnection, query)
