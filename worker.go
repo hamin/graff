@@ -56,7 +56,7 @@ func main() {
 	})
 
 	// pull messages from "myqueue" with concurrency of 10
-	workers.Process("instagramediaimportworker", instagram.MediaImportWorker, 10)
+	workers.Process("instagramediaimportworker", instagram.MediaImportWorker, 30)
 	workers.Process("instagramuserimportworker", instagram.UserImportWorker, 10)
 	workers.Process("instagramfollowsimportworker", instagram.FollowsImportWorker, 10)
 	workers.Process("instagramfollowersimportworker", instagram.FollowersImportWorker, 10)
