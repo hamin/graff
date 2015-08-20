@@ -63,6 +63,10 @@ func FollowersImportWorker(message *workers.Msg) {
 
 	users, _, err := client.Relationships.FollowedBy(igUID, opt)
 	if err != nil {
+		if CheckIGErrorForUnavailableResource(err) {
+			log.Error("FollowersImportWorkerError: Failed Resource is no longer Available, NOT ENQUEUEING AGAIN ", err)
+			return
+		}
 		log.Error("FollowersImportWorkerError:", err)
 		performFollowersAgain(igUID, igToken, newFollowerImporterString)
 		return

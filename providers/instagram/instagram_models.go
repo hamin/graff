@@ -1,5 +1,7 @@
 package instagram
 
+import "strings"
+
 // User - IG User
 type User struct {
 	InstagramID             string
@@ -40,4 +42,10 @@ type MediaLocation struct {
 	Name        string
 	Latitude    float64
 	Longitude   float64
+}
+
+// CheckIGErrorForUnavailableResource - Kind of hacky, but checks if error from IG is for a private/unavailable resource
+func CheckIGErrorForUnavailableResource(err error) bool {
+	s := err.Error()
+	return strings.Contains(s, "APINotAllowedError") || strings.Contains(s, "400") || strings.Contains(s, "cannot view this resource")
 }

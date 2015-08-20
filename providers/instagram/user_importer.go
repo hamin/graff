@@ -78,6 +78,10 @@ func UserImportWorker(message *workers.Msg) {
 	// Get IG User and Create Neo Node
 	igUser, igErr := client.Users.Get(igUID)
 	if igErr != nil {
+		if CheckIGErrorForUnavailableResource(igErr) {
+			log.Error("UserImportWorker: Failed Resource is no longer Available, NOT ENQUEUEING AGAIN ", igErr)
+			return
+		}
 		log.Error("UserImportWorker: Error: %v\n", igErr)
 		log.Error("UserImportWorker: No IG user found: ", igUID)
 		log.Info("UserImportWorker: Instagram API Failed, Enqueuing User Import Again With IGUID: ", igUID)

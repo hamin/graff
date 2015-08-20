@@ -54,6 +54,10 @@ func MediaImportWorker(message *workers.Msg) {
 	}
 
 	if err != nil {
+		if CheckIGErrorForUnavailableResource(err) {
+			log.Error("InstagramMediaImportWorker: Failed Resource is no longer Available, NOT ENQUEUEING AGAIN ", err)
+			return
+		}
 		log.Error("InstagramMediaImportWorker: Instagram API Failed : %v", err)
 		performMediaAgain(igUID, igToken, maxID, newFollowerImporterString)
 		return
