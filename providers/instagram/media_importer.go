@@ -84,8 +84,22 @@ func MediaImportWorker(message *workers.Msg) {
 		}
 
 		if m.Videos != nil {
-			igMediaItem.VideoLowResolution = m.Videos.LowResolution.URL
-			igMediaItem.VideoLowResolution = m.Videos.StandardResolution.URL
+			// Trying to protect against weird invalid memory address runtime panic we're getting
+			// igMediaItem.VideoLowResolution = m.Videos.LowResolution.URL
+			// igMediaItem.VideoHighResolution = m.Videos.StandardResolution.URL
+			if m.Videos.LowResolution != nil {
+				if m.Videos.LowResolution.URL != nil {
+					log.Info("MediaImportWorker: **** Set Low Resolution URL *****")
+					igMediaItem.VideoLowResolution = m.Videos.LowResolution.URL
+				}
+			}
+
+			if m.Videos.StandardResolution != nil {
+				if m.Videos.StandardResolution.URL != nil {
+					log.Info("MediaImportWorker: **** Set Standard Resolution URL *****")
+					igMediaItem.VideoHighResolution = m.Videos.StandardResolution.URL
+				}
+			}
 		}
 
 		if m.Caption != nil {
