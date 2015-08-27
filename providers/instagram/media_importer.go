@@ -88,14 +88,14 @@ func MediaImportWorker(message *workers.Msg) {
 			// igMediaItem.VideoLowResolution = m.Videos.LowResolution.URL
 			// igMediaItem.VideoHighResolution = m.Videos.StandardResolution.URL
 			if m.Videos.LowResolution != nil {
-				if m.Videos.LowResolution.URL != nil {
+				if m.Videos.LowResolution.URL != "" {
 					log.Info("MediaImportWorker: **** Set Low Resolution URL *****")
 					igMediaItem.VideoLowResolution = m.Videos.LowResolution.URL
 				}
 			}
 
 			if m.Videos.StandardResolution != nil {
-				if m.Videos.StandardResolution.URL != nil {
+				if m.Videos.StandardResolution.URL != "" {
 					log.Info("MediaImportWorker: **** Set Standard Resolution URL *****")
 					igMediaItem.VideoHighResolution = m.Videos.StandardResolution.URL
 				}
